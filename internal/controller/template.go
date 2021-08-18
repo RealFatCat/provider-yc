@@ -23,7 +23,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
 
 	"github.com/RealFatCat/provider-yc/internal/controller/config"
-	"github.com/RealFatCat/provider-yc/internal/controller/mytype"
+	"github.com/RealFatCat/provider-yc/internal/controller/networktype"
 )
 
 // Setup creates all Template controllers with the supplied logger and adds them to
@@ -31,7 +31,7 @@ import (
 func Setup(mgr ctrl.Manager, l logging.Logger, wl workqueue.RateLimiter) error {
 	for _, setup := range []func(ctrl.Manager, logging.Logger, workqueue.RateLimiter) error{
 		config.Setup,
-		mytype.Setup,
+		networktype.Setup,
 	} {
 		if err := setup(mgr, l, wl); err != nil {
 			return err

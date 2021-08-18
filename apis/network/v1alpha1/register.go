@@ -25,7 +25,7 @@ import (
 
 // Package type metadata.
 const (
-	Group   = "sample.template.crossplane.io"
+	Group   = "network.yc.yandex-team.ru"
 	Version = "v1alpha1"
 )
 
@@ -39,12 +39,12 @@ var (
 
 // MyType type metadata.
 var (
-	MyTypeKind             = reflect.TypeOf(MyType{}).Name()
-	MyTypeGroupKind        = schema.GroupKind{Group: Group, Kind: MyTypeKind}.String()
-	MyTypeKindAPIVersion   = MyTypeKind + "." + SchemeGroupVersion.String()
-	MyTypeGroupVersionKind = SchemeGroupVersion.WithKind(MyTypeKind)
+	NetworkTypeKind             = reflect.TypeOf(NetworkType{}).Name()
+	NetworkTypeGroupKind        = schema.GroupKind{Group: Group, Kind: NetworkTypeKind}.String()
+	NetworkTypeKindAPIVersion   = NetworkTypeKind + "." + SchemeGroupVersion.String()
+	NetworkTypeGroupVersionKind = SchemeGroupVersion.WithKind(NetworkTypeKind)
 )
 
 func init() {
-	SchemeBuilder.Register(&MyType{}, &MyTypeList{})
+	SchemeBuilder.Register(&NetworkType{}, &NetworkTypeList{})
 }

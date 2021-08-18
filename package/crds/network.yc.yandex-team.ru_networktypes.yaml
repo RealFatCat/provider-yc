@@ -4,18 +4,18 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.3.0
   creationTimestamp: null
-  name: mytypes.sample.template.crossplane.io
+  name: networktypes.network.yc.yandex-team.ru
 spec:
-  group: sample.template.crossplane.io
+  group: network.yc.yandex-team.ru
   names:
     categories:
     - crossplane
     - managed
     - yc
-    kind: MyType
-    listKind: MyTypeList
-    plural: mytypes
-    singular: mytype
+    kind: NetworkType
+    listKind: NetworkTypeList
+    plural: networktypes
+    singular: networktype
   scope: Cluster
   versions:
   - additionalPrinterColumns:
@@ -31,7 +31,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: A MyType is an example API type. Please replace `PROVIDER-NAME` with your actual provider name, like `aws`, `azure`, `gcp`, `alibaba`
+        description: A NetworkType is an example API type. Please replace `PROVIDER-NAME` with your actual provider name, like `aws`, `azure`, `gcp`, `alibaba`
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
@@ -42,7 +42,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: A MyTypeSpec defines the desired state of a MyType.
+            description: A NetworkTypeSpec defines the desired state of a NetworkType.
             properties:
               deletionPolicy:
                 description: DeletionPolicy specifies what will happen to the underlying external when this managed resource is deleted - either "Delete" or "Orphan" the external resource. The "Delete" policy is the default when no policy is specified.
@@ -51,12 +51,18 @@ spec:
                 - Delete
                 type: string
               forProvider:
-                description: MyTypeParameters are the configurable fields of a MyType.
+                description: NetworkTypeParameters are the configurable fields of a NetworkType.
                 properties:
-                  configurableField:
+                  description:
+                    type: string
+                  labels:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  name:
                     type: string
                 required:
-                - configurableField
+                - name
                 type: object
               providerConfigRef:
                 description: ProviderConfigReference specifies how the provider that will be used to create, observe, update, and delete this managed resource should be configured.
@@ -93,13 +99,29 @@ spec:
             - forProvider
             type: object
           status:
-            description: A MyTypeStatus represents the observed state of a MyType.
+            description: A NetworkTypeStatus represents the observed state of a NetworkType.
             properties:
               atProvider:
-                description: MyTypeObservation are the observable fields of a MyType.
+                description: NetworkTypeObservation are the observable fields of a NetworkType.
                 properties:
-                  observableField:
+                  ID:
                     type: string
+                  created_at:
+                    type: string
+                  description:
+                    type: string
+                  folder_id:
+                    type: string
+                  labels:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  name:
+                    type: string
+                required:
+                - created_at
+                - folder_id
+                - name
                 type: object
               conditions:
                 description: Conditions of the resource.

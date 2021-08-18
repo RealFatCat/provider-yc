@@ -20,15 +20,15 @@ package apis
 import (
 	"k8s.io/apimachinery/pkg/runtime"
 
-	samplev1alpha1 "github.com/RealFatCat/provider-yc/apis/sample/v1alpha1"
+	networkv1alpha1 "github.com/RealFatCat/provider-yc/apis/network/v1alpha1"
 	templatev1alpha1 "github.com/RealFatCat/provider-yc/apis/v1alpha1"
 )
 
 func init() {
 	// Register the types with the Scheme so the components can map objects to GroupVersionKinds and back
 	AddToSchemes = append(AddToSchemes,
+		networkv1alpha1.SchemeBuilder.AddToScheme,
 		templatev1alpha1.SchemeBuilder.AddToScheme,
-		samplev1alpha1.SchemeBuilder.AddToScheme,
 	)
 }
 
