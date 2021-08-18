@@ -1,0 +1,10 @@
+apiVersion: network.yc.yandex-team.ru/v1alpha1
+kind: NetworkType
+metadata:
+  name: test
+spec:
+  forProvider:
+    name: test-network
+    description: "noop test network"
+  providerConfigRef:
+    name: test
