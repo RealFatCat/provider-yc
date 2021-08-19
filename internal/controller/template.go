@@ -26,7 +26,7 @@ import (
 	"github.com/RealFatCat/provider-yc/internal/controller/networktype"
 )
 
-// Setup creates all Template controllers with the supplied logger and adds them to
+// Setup creates all YC controllers with the supplied logger and adds them to
 // the supplied manager.
 func Setup(mgr ctrl.Manager, l logging.Logger, wl workqueue.RateLimiter) error {
 	for _, setup := range []func(ctrl.Manager, logging.Logger, workqueue.RateLimiter) error{

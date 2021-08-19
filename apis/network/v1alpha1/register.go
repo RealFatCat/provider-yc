@@ -37,7 +37,7 @@ var (
 	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
 )
 
-// MyType type metadata.
+// NetworkType type metadata.
 var (
 	NetworkTypeKind             = reflect.TypeOf(NetworkType{}).Name()
 	NetworkTypeGroupKind        = schema.GroupKind{Group: Group, Kind: NetworkTypeKind}.String()

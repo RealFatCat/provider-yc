@@ -5,7 +5,7 @@ metadata:
   name: provider-yc-secret
 type: Opaque
 data:
-  credentials: BASE64ENCODED_PROVIDER_CREDS
+  credentials: ${BASE64ENCODED_YC_ACCOUNT_CREDS}
 ---
 apiVersion: yc.yandex-team.ru/v1alpha1
 kind: ProviderConfig

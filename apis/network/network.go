@@ -14,5 +14,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package sample contains group Network API versions
+// Package network contains group Network API versions
 package network
