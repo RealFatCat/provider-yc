@@ -4,26 +4,38 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.3.0
   creationTimestamp: null
-  name: networktypes.network.yc.yandex-team.ru
+  name: networks.networking.yc.yandex-team.ru
 spec:
-  group: network.yc.yandex-team.ru
+  group: networking.yc.yandex-team.ru
   names:
     categories:
     - crossplane
     - managed
     - yc
-    kind: NetworkType
-    listKind: NetworkTypeList
-    plural: networktypes
-    singular: networktype
+    kind: Network
+    listKind: NetworkList
+    plural: networks
+    singular: network
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.bindingPhase
-      name: STATUS
+    - jsonPath: .status.atProvider.ID
+      name: ID
       type: string
-    - jsonPath: .status.atProvider.state
-      name: STATE
+    - jsonPath: .status.atProvider.name
+      name: YC_NAME
+      type: string
+    - jsonPath: .status.atProvider.folder_id
+      name: FOLDER_ID
+      type: string
+    - jsonPath: .status.atProvider.created_at
+      name: CREATED_AT
+      type: string
+    - jsonPath: .status.atProvider.labels
+      name: LABELS
+      type: string
+    - jsonPath: .status.atProvider.description
+      name: DESCRIPTION
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: AGE
@@ -31,7 +43,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: A NetworkType is an API type for YC provider
+        description: A Network is an API type for YC provider
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
@@ -42,7 +54,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: A NetworkTypeSpec defines the desired state of a NetworkType.
+            description: A NetworkSpec defines the desired state of a Network.
             properties:
               deletionPolicy:
                 description: DeletionPolicy specifies what will happen to the underlying external when this managed resource is deleted - either "Delete" or "Orphan" the external resource. The "Delete" policy is the default when no policy is specified.
@@ -51,7 +63,7 @@ spec:
                 - Delete
                 type: string
               forProvider:
-                description: NetworkTypeParameters are the configurable fields of a NetworkType.
+                description: NetworkParameters are the configurable fields of a Network.
                 properties:
                   description:
                     type: string
@@ -102,10 +114,10 @@ spec:
             - forProvider
             type: object
           status:
-            description: A NetworkTypeStatus represents the observed state of a NetworkType.
+            description: A NetworkStatus represents the observed state of a Network.
             properties:
               atProvider:
-                description: NetworkTypeObservation are the observable fields of a NetworkType.
+                description: NetworkObservation are the observable fields of a Network.
                 properties:
                   ID:
                     type: string
@@ -124,6 +136,7 @@ spec:
                   name:
                     type: string
                 required:
+                - ID
                 - created_at
                 - folder_id
                 - name

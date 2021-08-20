@@ -1,0 +1,11 @@
+apiVersion: networking.yc.yandex-team.ru/v1alpha1
+kind: Network
+metadata:
+  name: yc-network
+spec:
+  forProvider:
+    name: network-from-kuber
+    folder_id: b1gjmmtufqjb87p5tojj
+    description: "yc network created via kubectl"
+  providerConfigRef:
+    name: test-yc

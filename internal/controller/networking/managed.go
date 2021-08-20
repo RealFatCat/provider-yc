@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package networktype
+package networking
 
 import (
 	"context"
@@ -76,7 +76,7 @@ func Setup(mgr ctrl.Manager, l logging.Logger, rl workqueue.RateLimiter) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).
 		WithOptions(o).
-		For(&v1alpha1.NetworkType{}).
+		For(&v1alpha1.Network{}).
 		Complete(r)
 }
 
@@ -93,7 +93,7 @@ type connector struct {
 // 4. Using the credentials to form a client.
 func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.ExternalClient, error) {
 	fmt.Println("Connecting")
-	cr, ok := mg.(*v1alpha1.NetworkType)
+	cr, ok := mg.(*v1alpha1.Network)
 	if !ok {
 		return nil, errors.New(errNotNetworkType)
 	}
@@ -143,7 +143,7 @@ func setStatus() {
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
-	cr, ok := mg.(*v1alpha1.NetworkType)
+	cr, ok := mg.(*v1alpha1.Network)
 	if !ok {
 		return managed.ExternalObservation{}, errors.New(errNotNetworkType)
 	}
@@ -202,7 +202,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 }
 
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
-	cr, ok := mg.(*v1alpha1.NetworkType)
+	cr, ok := mg.(*v1alpha1.Network)
 	if !ok {
 		return managed.ExternalCreation{}, errors.New(errNotNetworkType)
 	}
@@ -233,7 +233,7 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 }
 
 func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.ExternalUpdate, error) {
-	cr, ok := mg.(*v1alpha1.NetworkType)
+	cr, ok := mg.(*v1alpha1.Network)
 	if !ok {
 		return managed.ExternalUpdate{}, errors.New(errNotNetworkType)
 	}
@@ -247,7 +247,7 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 }
 
 func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
-	cr, ok := mg.(*v1alpha1.NetworkType)
+	cr, ok := mg.(*v1alpha1.Network)
 	if !ok {
 		return errors.New(errNotNetworkType)
 	}

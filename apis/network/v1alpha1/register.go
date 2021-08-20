@@ -25,7 +25,7 @@ import (
 
 // Package type metadata.
 const (
-	Group   = "network.yc.yandex-team.ru"
+	Group   = "networking.yc.yandex-team.ru"
 	Version = "v1alpha1"
 )
 
@@ -39,12 +39,12 @@ var (
 
 // NetworkType type metadata.
 var (
-	NetworkTypeKind             = reflect.TypeOf(NetworkType{}).Name()
+	NetworkTypeKind             = reflect.TypeOf(Network{}).Name()
 	NetworkTypeGroupKind        = schema.GroupKind{Group: Group, Kind: NetworkTypeKind}.String()
 	NetworkTypeKindAPIVersion   = NetworkTypeKind + "." + SchemeGroupVersion.String()
 	NetworkTypeGroupVersionKind = SchemeGroupVersion.WithKind(NetworkTypeKind)
 )
 
 func init() {
-	SchemeBuilder.Register(&NetworkType{}, &NetworkTypeList{})
+	SchemeBuilder.Register(&Network{}, &NetworkList{})
 }

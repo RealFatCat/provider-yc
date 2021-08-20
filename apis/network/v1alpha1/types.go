@@ -22,8 +22,8 @@ import (
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 )
 
-// NetworkTypeParameters are the configurable fields of a NetworkType.
-type NetworkTypeParameters struct {
+// NetworkParameters are the configurable fields of a Network.
+type NetworkParameters struct {
 	FolderID string `json:"folder_id"`
 	Name     string `json:"name"`
 	// +optional
@@ -32,9 +32,9 @@ type NetworkTypeParameters struct {
 	Description string `json:"description,omitempty"`
 }
 
-// NetworkTypeObservation are the observable fields of a NetworkType.
-type NetworkTypeObservation struct {
-	ID                     string            `json:"ID,omitempty"`
+// NetworkObservation are the observable fields of a Network.
+type NetworkObservation struct {
+	ID                     string            `json:"ID"`
 	FolderID               string            `json:"folder_id"`
 	CreatedAt              string            `json:"created_at"`
 	Name                   string            `json:"name"`
@@ -43,39 +43,43 @@ type NetworkTypeObservation struct {
 	DefaultSecurityGroupID string            `json:"default_security_group_id,omitempty"`
 }
 
-// A NetworkTypeSpec defines the desired state of a NetworkType.
-type NetworkTypeSpec struct {
+// A NetworkSpec defines the desired state of a Network.
+type NetworkSpec struct {
 	xpv1.ResourceSpec `json:",inline"`
-	ForProvider       NetworkTypeParameters `json:"forProvider"`
+	ForProvider       NetworkParameters `json:"forProvider"`
 }
 
-// A NetworkTypeStatus represents the observed state of a NetworkType.
-type NetworkTypeStatus struct {
+// A NetworkStatus represents the observed state of a Network.
+type NetworkStatus struct {
 	xpv1.ResourceStatus `json:",inline"`
-	AtProvider          NetworkTypeObservation `json:"atProvider,omitempty"`
+	AtProvider          NetworkObservation `json:"atProvider,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// A NetworkType is an API type for YC provider
+// A Network is an API type for YC provider
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="STATUS",type="string",JSONPath=".status.bindingPhase"
-// +kubebuilder:printcolumn:name="STATE",type="string",JSONPath=".status.atProvider.state"
+// +kubebuilder:printcolumn:name="ID",type="string",JSONPath=".status.atProvider.ID"
+// +kubebuilder:printcolumn:name="YC_NAME",type="string",JSONPath=".status.atProvider.name"
+// +kubebuilder:printcolumn:name="FOLDER_ID",type="string",JSONPath=".status.atProvider.folder_id"
+// +kubebuilder:printcolumn:name="CREATED_AT",type="string",JSONPath=".status.atProvider.created_at"
+// +kubebuilder:printcolumn:name="LABELS",type="string",JSONPath=".status.atProvider.labels"
+// +kubebuilder:printcolumn:name="DESCRIPTION",type="string",JSONPath=".status.atProvider.description"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:scope=Cluster,categories={crossplane,managed,yc}
-type NetworkType struct {
+type Network struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   NetworkTypeSpec   `json:"spec"`
-	Status NetworkTypeStatus `json:"status,omitempty"`
+	Spec   NetworkSpec   `json:"spec"`
+	Status NetworkStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// NetworkTypeList contains a list of NetworkType
-type NetworkTypeList struct {
+// NetworkList contains a list of Network
+type NetworkList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []NetworkType `json:"items"`
+	Items           []Network `json:"items"`
 }
