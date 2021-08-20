@@ -19,6 +19,7 @@ package networking
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	vpc_pb "github.com/yandex-cloud/go-genproto/yandex/cloud/vpc/v1"
 	ycsdk "github.com/yandex-cloud/go-sdk"
@@ -55,6 +56,7 @@ const (
 	errCreateVirtualNetwork = "cannot create network"
 	errDeleteVirtualNetwork = "cannot delete network"
 	errGetNetwork           = "cannot get network"
+	errUpdateNetwork        = "cannot update network"
 )
 
 // Setup adds a controller that reconciles NetworkType managed resources.
@@ -193,7 +195,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		// Return false when the external resource exists, but it not up to date
 		// with the desired managed resource state. This lets the managed
 		// resource reconciler know that it needs to call Update.
-		ResourceUpToDate: true,
+		// ResourceUpToDate: true,
 
 		// Return any details that may be required to connect to the external
 		// resource. These will be stored as the connection secret.
@@ -228,7 +230,7 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	return managed.ExternalCreation{
 		// Optionally return any details that may be required to connect to the
 		// external resource. These will be stored as the connection secret.
-		// ConnectionDetails: managed.ConnectionDetails{},
+		ConnectionDetails: managed.ConnectionDetails{},
 	}, nil
 }
 
@@ -237,7 +239,31 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	if !ok {
 		return managed.ExternalUpdate{}, errors.New(errNotNetworkType)
 	}
-	fmt.Println("Update is not implemented yet %+v", cr)
+	req := &vpc_pb.GetNetworkRequest{NetworkId: cr.Status.AtProvider.ID}
+	resp, err := c.client.Get(ctx, req)
+	if err != nil {
+		return managed.ExternalUpdate{}, errors.Wrap(err, errGetNetwork)
+	}
+	ureq := &vpc_pb.UpdateNetworkRequest{
+		NetworkId:   resp.Id,
+		Name:        cr.Spec.ForProvider.Name,
+		Description: cr.Spec.ForProvider.Description,
+		Labels:      cr.Spec.ForProvider.Labels,
+		// No UpdateMask support for now. It seems useless, when we use yaml files to "rule them all".
+	}
+	// TODO Do better
+	if cr.Status.AtProvider.Name != cr.Spec.ForProvider.Name ||
+		!reflect.DeepEqual(cr.Status.AtProvider.Labels, cr.Spec.ForProvider.Labels) ||
+		cr.Status.AtProvider.Description != cr.Spec.ForProvider.Description {
+		_, err = c.client.Update(ctx, ureq)
+		if err != nil {
+			return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateNetwork)
+		}
+	}
+
+	cr.Status.AtProvider.Name = cr.Spec.ForProvider.Name
+	cr.Status.AtProvider.Labels = cr.Spec.ForProvider.Labels
+	cr.Status.AtProvider.Description = cr.Spec.ForProvider.Description
 
 	return managed.ExternalUpdate{
 		// Optionally return any details that may be required to connect to the
