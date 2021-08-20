@@ -55,6 +55,8 @@ spec:
                 properties:
                   description:
                     type: string
+                  folder_id:
+                    type: string
                   labels:
                     additionalProperties:
                       type: string
@@ -62,6 +64,7 @@ spec:
                   name:
                     type: string
                 required:
+                - folder_id
                 - name
                 type: object
               providerConfigRef:
@@ -107,6 +110,8 @@ spec:
                   ID:
                     type: string
                   created_at:
+                    type: string
+                  default_security_group_id:
                     type: string
                   description:
                     type: string

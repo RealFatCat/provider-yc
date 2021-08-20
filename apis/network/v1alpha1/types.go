@@ -24,7 +24,8 @@ import (
 
 // NetworkTypeParameters are the configurable fields of a NetworkType.
 type NetworkTypeParameters struct {
-	Name string `json:"name"`
+	FolderID string `json:"folder_id"`
+	Name     string `json:"name"`
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
 	// +optional
@@ -33,12 +34,13 @@ type NetworkTypeParameters struct {
 
 // NetworkTypeObservation are the observable fields of a NetworkType.
 type NetworkTypeObservation struct {
-	ID          string            `json:"ID,omitempty"`
-	FolderID    string            `json:"folder_id"`
-	CreatedAt   string            `json:"created_at"`
-	Name        string            `json:"name"`
-	Labels      map[string]string `json:"labels,omitempty"`
-	Description string            `json:"description,omitempty"`
+	ID                     string            `json:"ID,omitempty"`
+	FolderID               string            `json:"folder_id"`
+	CreatedAt              string            `json:"created_at"`
+	Name                   string            `json:"name"`
+	Labels                 map[string]string `json:"labels,omitempty"`
+	Description            string            `json:"description,omitempty"`
+	DefaultSecurityGroupID string            `json:"default_security_group_id,omitempty"`
 }
 
 // A NetworkTypeSpec defines the desired state of a NetworkType.

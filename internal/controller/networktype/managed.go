@@ -20,6 +20,11 @@ import (
 	"context"
 	"fmt"
 
+	vpc_pb "github.com/yandex-cloud/go-genproto/yandex/cloud/vpc/v1"
+	ycsdk "github.com/yandex-cloud/go-sdk"
+	"github.com/yandex-cloud/go-sdk/gen/vpc"
+	"github.com/yandex-cloud/go-sdk/iamkey"
+
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
@@ -33,6 +38,8 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 
+	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
+
 	"github.com/RealFatCat/provider-yc/apis/network/v1alpha1"
 	apisv1alpha1 "github.com/RealFatCat/provider-yc/apis/v1alpha1"
 )
@@ -42,15 +49,12 @@ const (
 	errTrackPCUsage   = "cannot track ProviderConfig usage"
 	errGetPC          = "cannot get ProviderConfig"
 	errGetCreds       = "cannot get credentials"
+	errGetSDK         = "cannot get YC SDK"
 
-	errNewClient = "cannot create new Service"
-)
-
-// A NoOpService does nothing.
-type NoOpService struct{}
-
-var (
-	newNoOpService = func(_ []byte) (interface{}, error) { return &NoOpService{}, nil }
+	errNewClient            = "cannot create new Service"
+	errCreateVirtualNetwork = "cannot create network"
+	errDeleteVirtualNetwork = "cannot delete network"
+	errGetNetwork           = "cannot get network"
 )
 
 // Setup adds a controller that reconciles NetworkType managed resources.
@@ -64,9 +68,8 @@ func Setup(mgr ctrl.Manager, l logging.Logger, rl workqueue.RateLimiter) error {
 	r := managed.NewReconciler(mgr,
 		resource.ManagedKind(v1alpha1.NetworkTypeGroupVersionKind),
 		managed.WithExternalConnecter(&connector{
-			kube:         mgr.GetClient(),
-			usage:        resource.NewProviderConfigUsageTracker(mgr.GetClient(), &apisv1alpha1.ProviderConfigUsage{}),
-			newServiceFn: newNoOpService}),
+			client: mgr.GetClient(),
+		}),
 		managed.WithLogger(l.WithValues("controller", name)),
 		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))))
 
@@ -80,9 +83,7 @@ func Setup(mgr ctrl.Manager, l logging.Logger, rl workqueue.RateLimiter) error {
 // A connector is expected to produce an ExternalClient when its Connect method
 // is called.
 type connector struct {
-	kube         client.Client
-	usage        resource.Tracker
-	newServiceFn func(creds []byte) (interface{}, error)
+	client client.Client
 }
 
 // Connect typically produces an ExternalClient by:
@@ -91,40 +92,54 @@ type connector struct {
 // 3. Getting the credentials specified by the ProviderConfig.
 // 4. Using the credentials to form a client.
 func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.ExternalClient, error) {
+	fmt.Println("Connecting")
 	cr, ok := mg.(*v1alpha1.NetworkType)
 	if !ok {
 		return nil, errors.New(errNotNetworkType)
 	}
 
-	if err := c.usage.Track(ctx, mg); err != nil {
+	t := resource.NewProviderConfigUsageTracker(c.client, &apisv1alpha1.ProviderConfigUsage{})
+	if err := t.Track(ctx, mg); err != nil {
 		return nil, errors.Wrap(err, errTrackPCUsage)
 	}
 
 	pc := &apisv1alpha1.ProviderConfig{}
-	if err := c.kube.Get(ctx, types.NamespacedName{Name: cr.GetProviderConfigReference().Name}, pc); err != nil {
+	if err := c.client.Get(ctx, types.NamespacedName{Name: cr.GetProviderConfigReference().Name}, pc); err != nil {
 		return nil, errors.Wrap(err, errGetPC)
 	}
 
 	cd := pc.Spec.Credentials
-	data, err := resource.CommonCredentialExtractor(ctx, cd.Source, c.kube, cd.CommonCredentialSelectors)
+	data, err := resource.CommonCredentialExtractor(ctx, cd.Source, c.client, cd.CommonCredentialSelectors)
 	if err != nil {
 		return nil, errors.Wrap(err, errGetCreds)
 	}
 
-	svc, err := c.newServiceFn(data)
+	key, err := iamkey.ReadFromJSONBytes(data)
 	if err != nil {
-		return nil, errors.Wrap(err, errNewClient)
+		return nil, errors.Wrap(err, "could not parse key data")
 	}
-
-	return &external{service: svc}, nil
+	creds, err := ycsdk.ServiceAccountKey(key)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create creds from key data")
+	}
+	cfg := ycsdk.Config{Credentials: creds}
+	sdk, err := ycsdk.Build(ctx, cfg)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create SDK")
+	}
+	cl := sdk.VPC().Network()
+	fmt.Println("Connecting done")
+	return &external{client: cl}, nil
 }
 
 // An ExternalClient observes, then either creates, updates, or deletes an
 // external resource to ensure it reflects the managed resource's desired state.
 type external struct {
-	// A 'client' used to connect to the external resource API. In practice this
-	// would be something like an AWS SDK client.
-	service interface{}
+	client *vpc.NetworkServiceClient
+}
+
+func setStatus() {
+
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
@@ -135,6 +150,39 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 
 	// These fmt statements should be removed in the real implementation.
 	fmt.Printf("Observing: %+v", cr)
+	req := &vpc_pb.ListNetworksRequest{FolderId: cr.Spec.ForProvider.FolderID, Filter: fmt.Sprintf("name = '%s'", cr.Spec.ForProvider.Name)}
+	resp, err := c.client.List(ctx, req)
+	if err != nil {
+		return managed.ExternalObservation{}, errors.Wrap(err, errGetNetwork)
+	}
+	if len(resp.Networks) == 0 {
+		return managed.ExternalObservation{
+			// Return false when the external resource does not exist. This lets
+			// the managed resource reconciler know that it needs to call Create to
+			// (re)create the resource, or that it has successfully been deleted.
+			ResourceExists: false,
+
+			// Return false when the external resource exists, but it not up to date
+			// with the desired managed resource state. This lets the managed
+			// resource reconciler know that it needs to call Update.
+			// ResourceUpToDate: true,
+
+			// Return any details that may be required to connect to the external
+			// resource. These will be stored as the connection secret.
+			ConnectionDetails: managed.ConnectionDetails{},
+		}, nil
+	}
+
+	net := resp.Networks[0]
+	cr.Status.AtProvider.CreatedAt = net.CreatedAt.String()
+	cr.Status.AtProvider.ID = net.Id
+	cr.Status.AtProvider.FolderID = net.FolderId
+	cr.Status.AtProvider.Name = net.Name
+	cr.Status.AtProvider.Labels = net.Labels
+	cr.Status.AtProvider.Description = net.Description
+	cr.Status.AtProvider.DefaultSecurityGroupID = net.DefaultSecurityGroupId
+
+	cr.SetConditions(xpv1.Available())
 
 	return managed.ExternalObservation{
 		// Return false when the external resource does not exist. This lets
@@ -160,11 +208,27 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	}
 
 	fmt.Printf("Creating: %+v", cr)
+	cr.Status.SetConditions(xpv1.Creating())
+
+	req := &vpc_pb.CreateNetworkRequest{
+		// To get the folder ID, use a [yandex.cloud.resourcemanager.v1.FolderService.List] request.
+		FolderId: cr.Spec.ForProvider.FolderID,
+		// Name of the network.
+		// The name must be unique within the folder.
+		Name: cr.Spec.ForProvider.Name,
+		// Description of the network.
+		Description: cr.Spec.ForProvider.Description,
+		// Resource labels as `` key:value `` pairs.
+		Labels: cr.Spec.ForProvider.Labels,
+	}
+	if _, err := c.client.Create(ctx, req); err != nil {
+		return managed.ExternalCreation{}, errors.Wrap(err, errCreateVirtualNetwork)
+	}
 
 	return managed.ExternalCreation{
 		// Optionally return any details that may be required to connect to the
 		// external resource. These will be stored as the connection secret.
-		ConnectionDetails: managed.ConnectionDetails{},
+		// ConnectionDetails: managed.ConnectionDetails{},
 	}, nil
 }
 
@@ -173,8 +237,7 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	if !ok {
 		return managed.ExternalUpdate{}, errors.New(errNotNetworkType)
 	}
-
-	fmt.Printf("Updating: %+v", cr)
+	fmt.Println("Update is not implemented yet %+v", cr)
 
 	return managed.ExternalUpdate{
 		// Optionally return any details that may be required to connect to the
@@ -189,7 +252,13 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 		return errors.New(errNotNetworkType)
 	}
 
-	fmt.Printf("Deleting: %+v", cr)
+	mg.SetConditions(xpv1.Deleting())
 
+	req := &vpc_pb.DeleteNetworkRequest{NetworkId: cr.Status.AtProvider.ID}
+	fmt.Printf("Deleting: %+v", cr)
+	_, err := c.client.Delete(ctx, req)
+	if err != nil {
+		return errors.Wrap(err, errDeleteVirtualNetwork)
+	}
 	return nil
 }
