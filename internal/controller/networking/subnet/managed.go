@@ -146,6 +146,21 @@ type external struct {
 	net  *vpc.NetworkServiceClient
 }
 
+func getNetID(ctx context.Context, client *vpc.NetworkServiceClient, folderID, networkName string) (string, error) {
+	nreq := &vpc_pb.ListNetworksRequest{
+		FolderId: folderID,
+		Filter:   fmt.Sprintf("name = '%s'", networkName),
+	}
+	nrsp, err := client.List(ctx, nreq)
+	if err != nil {
+		return "", errors.Wrap(err, errGetNetwork)
+	}
+	if len(nrsp.Networks) != 1 {
+		return "", errors.Wrap(fmt.Errorf("%s not found, or multiple values recived", networkName), errGetNetwork)
+	}
+	return nrsp.Networks[0].Id, nil
+}
+
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
 	cr, ok := mg.(*v1alpha1.Subnet)
 	if !ok {
@@ -178,6 +193,15 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	}
 
 	sn := resp.Subnets[0]
+	n, err := c.net.Get(ctx, &vpc_pb.GetNetworkRequest{NetworkId: sn.NetworkId})
+	if err != nil {
+		return managed.ExternalObservation{}, errors.Wrap(err, errGetNetwork)
+	}
+	var nname string
+	if n != nil {
+		nname = n.Name
+	}
+
 	cr.Status.AtProvider.ID = sn.Id
 	cr.Status.AtProvider.FolderID = sn.FolderId
 	cr.Status.AtProvider.CreatedAt = sn.CreatedAt.String()
@@ -185,6 +209,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	cr.Status.AtProvider.Description = sn.Description
 	cr.Status.AtProvider.Labels = sn.Labels
 	cr.Status.AtProvider.NetworkID = sn.NetworkId
+	cr.Status.AtProvider.NetworkName = nname
 	cr.Status.AtProvider.ZoneID = sn.ZoneId
 	cr.Status.AtProvider.V4CidrBlocks = sn.V4CidrBlocks
 	cr.Status.AtProvider.V6CidrBlocks = sn.V6CidrBlocks
@@ -219,18 +244,10 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	fmt.Printf("Creating: %+v", cr)
 	cr.Status.SetConditions(xpv1.Creating())
 
-	nreq := &vpc_pb.ListNetworksRequest{
-		FolderId: cr.Spec.ForProvider.FolderID,
-		Filter:   fmt.Sprintf("name = '%s'", cr.Spec.ForProvider.NetworkName),
-	}
-	nrsp, err := c.net.List(ctx, nreq)
+	netID, err := getNetID(ctx, c.net, cr.Spec.ForProvider.FolderID, cr.Spec.ForProvider.NetworkName)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, errGetNetwork)
 	}
-	if len(nrsp.Networks) != 1 {
-		return managed.ExternalCreation{}, errors.Wrap(fmt.Errorf("%s not found, or multiple values recived", cr.Spec.ForProvider.NetworkName), errGetNetwork)
-	}
-	netID := nrsp.Networks[0].Id
 
 	req := &vpc_pb.CreateSubnetRequest{
 		// To get the folder ID, use a [yandex.cloud.resourcemanager.v1.FolderService.List] request.
