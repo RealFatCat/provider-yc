@@ -43,8 +43,14 @@ var (
 	NetworkTypeGroupKind        = schema.GroupKind{Group: Group, Kind: NetworkTypeKind}.String()
 	NetworkTypeKindAPIVersion   = NetworkTypeKind + "." + SchemeGroupVersion.String()
 	NetworkTypeGroupVersionKind = SchemeGroupVersion.WithKind(NetworkTypeKind)
+
+	SubnetTypeKind             = reflect.TypeOf(Subnet{}).Name()
+	SubnetTypeGroupKind        = schema.GroupKind{Group: Group, Kind: SubnetTypeKind}.String()
+	SubnetTypeKindAPIVersion   = SubnetTypeKind + "." + SchemeGroupVersion.String()
+	SubnetTypeGroupVersionKind = SchemeGroupVersion.WithKind(SubnetTypeKind)
 )
 
 func init() {
 	SchemeBuilder.Register(&Network{}, &NetworkList{})
+	SchemeBuilder.Register(&Subnet{}, &SubnetList{})
 }
