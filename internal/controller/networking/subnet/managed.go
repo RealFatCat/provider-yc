@@ -273,6 +273,13 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		// ID of route table the subnet is linked to.
 		RouteTableId: cr.Spec.ForProvider.RouteTableID,
 	}
+	if cr.Spec.ForProvider.DhcpOptions != nil {
+		req.DhcpOptions = &vpc_pb.DhcpOptions{
+			DomainNameServers: cr.Spec.ForProvider.DhcpOptions.DomainNameServers,
+			DomainName:        cr.Spec.ForProvider.DhcpOptions.DomainName,
+			NtpServers:        cr.Spec.ForProvider.DhcpOptions.NtpServers,
+		}
+	}
 	if _, err := c.subn.Create(ctx, req); err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, errCreateSubnet)
 	}
@@ -301,7 +308,6 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		Labels:       cr.Spec.ForProvider.Labels,
 		RouteTableId: cr.Spec.ForProvider.RouteTableID,
 		// No UpdateMask support for now. It seems useless, when we use yaml files to "rule them all".
-		// No DhcpOptions support for now. This resource is not described yet in our apis.
 	}
 	if cr.Status.AtProvider.Name != cr.Spec.ForProvider.Name ||
 		!reflect.DeepEqual(cr.Status.AtProvider.Labels, cr.Spec.ForProvider.Labels) ||

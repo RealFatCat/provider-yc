@@ -71,7 +71,19 @@ spec:
                   description:
                     type: string
                   dhcp_options:
-                    type: string
+                    description: DhcpOptions contains dhcp options for Subnet
+                    properties:
+                      domain_name:
+                        type: string
+                      domain_name_servers:
+                        items:
+                          type: string
+                        type: array
+                      ntp_servers:
+                        items:
+                          type: string
+                        type: array
+                    type: object
                   folder_id:
                     type: string
                   labels:

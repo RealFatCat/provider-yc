@@ -84,6 +84,13 @@ type NetworkList struct {
 	Items           []Network `json:"items"`
 }
 
+// DhcpOptions contains dhcp options for Subnet
+type DhcpOptions struct {
+	DomainNameServers []string `json:"domain_name_servers,omitempty"`
+	DomainName        string   `json:"domain_name,omitempty"`
+	NtpServers        []string `json:"ntp_servers,omitempty"`
+}
+
 // SubnetParameters are the configurable fields of a Subnet.
 type SubnetParameters struct {
 	FolderID     string   `json:"folder_id"`
@@ -98,7 +105,7 @@ type SubnetParameters struct {
 	// +optional
 	RouteTableID string `json:"route_table_id,omitempty"`
 	// +optional
-	DhcpOptions string `json:"dhcp_options,omitempty"`
+	DhcpOptions *DhcpOptions `json:"dhcp_options,omitempty"`
 }
 
 // SubnetObservation are the observable fields of a Subnet.
