@@ -19,6 +19,9 @@ package compute
 import (
 	"context"
 	"fmt"
+	"reflect"
+
+	"google.golang.org/genproto/protobuf/field_mask"
 
 	compute_pb "github.com/yandex-cloud/go-genproto/yandex/cloud/compute/v1"
 	vpc_pb "github.com/yandex-cloud/go-genproto/yandex/cloud/vpc/v1"
@@ -183,13 +186,53 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	}
 
 	sn := resp.Instances[0]
+
+	resources := &v1alpha1.ResourcesSpec{
+		Cores:        sn.Resources.GetCores(),
+		Memory:       sn.Resources.GetMemory(),
+		CoreFraction: sn.Resources.GetCoreFraction(),
+		Gpus:         sn.Resources.GetGpus(),
+	}
+	var pp *v1alpha1.PlacementPolicy
+	if sn.PlacementPolicy != nil {
+		pp = &v1alpha1.PlacementPolicy{
+			PlacementGroupID: sn.PlacementPolicy.GetPlacementGroupId(),
+		}
+		pbhaf := sn.PlacementPolicy.GetHostAffinityRules()
+		if pbhaf != nil {
+			hafs := []*v1alpha1.PlacementPolicy_HostAffinityRule{}
+			for _, pbrule := range pbhaf {
+				rule := &v1alpha1.PlacementPolicy_HostAffinityRule{
+					Key:    pbrule.GetKey(),
+					Op:     pbrule.GetOp().String(),
+					Values: pbrule.GetValues(),
+				}
+				hafs = append(hafs, rule)
+			}
+			pp.HostAffinityRules = hafs
+		}
+	}
+
+	var ns *v1alpha1.NetworkSettings
+	if sn.NetworkSettings != nil {
+		ns = &v1alpha1.NetworkSettings{
+			Type: sn.NetworkSettings.GetType().String(),
+		}
+	}
+
 	cr.Status.AtProvider.ID = sn.Id
 	cr.Status.AtProvider.FolderID = sn.FolderId
 	cr.Status.AtProvider.CreatedAt = sn.CreatedAt.String()
 	cr.Status.AtProvider.Name = sn.Name
+	cr.Status.AtProvider.Status = sn.Status.String()
 	cr.Status.AtProvider.Description = sn.Description
 	cr.Status.AtProvider.Labels = sn.Labels
-	cr.Status.AtProvider.ZoneID = sn.ZoneId
+	cr.Status.AtProvider.Metadata = sn.Metadata
+	cr.Status.AtProvider.PlatformID = sn.PlatformId
+	cr.Status.AtProvider.ServiceAccountID = sn.ServiceAccountId
+	cr.Status.AtProvider.Resources = resources
+	cr.Status.AtProvider.PlacementPolicy = pp
+	cr.Status.AtProvider.NetworkSettings = ns
 
 	cr.SetConditions(xpv1.Available())
 
@@ -303,6 +346,45 @@ func formDiskPb(diskSpec *v1alpha1.AttachedDiskSpec) (*compute_pb.AttachedDiskSp
 	return bds, nil
 }
 
+func fillNetworkSettingsPb(ns *v1alpha1.NetworkSettings) *compute_pb.NetworkSettings {
+	if ns == nil {
+		return nil
+	}
+	res := &compute_pb.NetworkSettings{}
+	nst, ok := compute_pb.NetworkSettings_Type_value[ns.Type]
+	if ok {
+		res.Type = compute_pb.NetworkSettings_Type(nst)
+	} else {
+		res.Type = compute_pb.NetworkSettings_TYPE_UNSPECIFIED
+	}
+	return res
+}
+
+func fillPlacementPolicyPb(pp *v1alpha1.PlacementPolicy) *compute_pb.PlacementPolicy {
+	if pp == nil {
+		return nil
+	}
+	res := &compute_pb.PlacementPolicy{}
+	res.PlacementGroupId = pp.PlacementGroupID
+
+	hars := []*compute_pb.PlacementPolicy_HostAffinityRule{}
+	for _, rule := range pp.HostAffinityRules {
+		har := &compute_pb.PlacementPolicy_HostAffinityRule{
+			Key:    rule.Key,
+			Values: rule.Values,
+		}
+		op, ok := compute_pb.PlacementPolicy_HostAffinityRule_Operator_value[rule.Op]
+		if ok {
+			har.Op = compute_pb.PlacementPolicy_HostAffinityRule_Operator(op)
+		} else {
+			har.Op = compute_pb.PlacementPolicy_HostAffinityRule_OPERATOR_UNSPECIFIED
+		}
+		hars = append(hars, har)
+	}
+	res.HostAffinityRules = hars
+	return res
+}
+
 // TODO: validate functions required
 // TODO: split this supermassive black hole into functions
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
@@ -349,39 +431,10 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	}
 
 	// Fill NetworkSettings
-	if cr.Spec.ForProvider.NetworkSettings != nil {
-		ns := &compute_pb.NetworkSettings{}
-		nst, ok := compute_pb.NetworkSettings_Type_value[cr.Spec.ForProvider.NetworkSettings.Type]
-		if ok {
-			ns.Type = compute_pb.NetworkSettings_Type(nst)
-		} else {
-			ns.Type = compute_pb.NetworkSettings_TYPE_UNSPECIFIED
-		}
-		req.NetworkSettings = ns
-	}
+	req.NetworkSettings = fillNetworkSettingsPb(cr.Spec.ForProvider.NetworkSettings)
 
 	// Fill PlacementPolicy
-	if cr.Spec.ForProvider.PlacementPolicy != nil {
-		pp := &compute_pb.PlacementPolicy{
-			PlacementGroupId: cr.Spec.ForProvider.PlacementPolicy.PlacementGroupID,
-		}
-		hars := []*compute_pb.PlacementPolicy_HostAffinityRule{}
-		for _, rule := range cr.Spec.ForProvider.PlacementPolicy.HostAffinityRules {
-			har := &compute_pb.PlacementPolicy_HostAffinityRule{
-				Key:    rule.Key,
-				Values: rule.Values,
-			}
-			op, ok := compute_pb.PlacementPolicy_HostAffinityRule_Operator_value[rule.Op]
-			if ok {
-				har.Op = compute_pb.PlacementPolicy_HostAffinityRule_Operator(op)
-			} else {
-				har.Op = compute_pb.PlacementPolicy_HostAffinityRule_OPERATOR_UNSPECIFIED
-			}
-			hars = append(hars, har)
-		}
-		pp.HostAffinityRules = hars
-		req.PlacementPolicy = pp
-	}
+	req.PlacementPolicy = fillPlacementPolicyPb(cr.Spec.ForProvider.PlacementPolicy)
 
 	// Fill SchedulingPolicy
 	if cr.Spec.ForProvider.SchedulingPolicy != nil {
@@ -440,65 +493,7 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	if cr.Spec.ForProvider.BootDiskSpec == nil {
 		return managed.ExternalCreation{}, errors.Wrap(fmt.Errorf("boot_disk"), errRequiredField)
 	}
-	/*
-		// ID or Spec must be present
-		// So, if both are present, return error
-		if cr.Spec.ForProvider.BootDiskSpec.Disk.ID != "" && cr.Spec.ForProvider.BootDiskSpec.Disk.Name != "" {
-			return managed.ExternalCreation{}, errors.Wrap(fmt.Errorf("disk id OR full disk spec must be present, got both"), errRequiredField)
-		}
-		bds := &compute_pb.AttachedDiskSpec{
-			DeviceName: cr.Spec.ForProvider.BootDiskSpec.DeviceName,
-			AutoDelete: cr.Spec.ForProvider.BootDiskSpec.AutoDelete,
-		}
-		// TODO: do better
-		mode, ok := compute_pb.AttachedDiskSpec_Mode_value[cr.Spec.ForProvider.BootDiskSpec.Mode]
-		if !ok {
-			bds.Mode = compute_pb.AttachedDiskSpec_MODE_UNSPECIFIED
-		} else {
-			bds.Mode = compute_pb.AttachedDiskSpec_Mode(mode)
-		}
 
-		if cr.Spec.ForProvider.BootDiskSpec.Disk.ID != "" {
-			bds.Disk = &compute_pb.AttachedDiskSpec_DiskId{
-				DiskId: cr.Spec.ForProvider.BootDiskSpec.Disk.ID,
-			}
-		} else {
-			bdsspk := &compute_pb.AttachedDiskSpec_DiskSpec{
-				Name:        cr.Spec.ForProvider.BootDiskSpec.Disk.Name,
-				Description: cr.Spec.ForProvider.BootDiskSpec.Disk.Description,
-				TypeId:      cr.Spec.ForProvider.BootDiskSpec.Disk.TypeId,
-				Size:        cr.Spec.ForProvider.BootDiskSpec.Disk.Size,
-				BlockSize:   cr.Spec.ForProvider.BootDiskSpec.Disk.BlockSize,
-				// Placement policy configuration.
-			}
-
-			if cr.Spec.ForProvider.BootDiskSpec.Disk.DiskPlacementPolicy != nil {
-				bdsspk.DiskPlacementPolicy = &compute_pb.DiskPlacementPolicy{
-					PlacementGroupId: cr.Spec.ForProvider.BootDiskSpec.Disk.DiskPlacementPolicy.PlacementGroupID,
-				}
-			}
-			// Types that are assignable to Source:
-			//  *AttachedDiskSpec_DiskSpec_ImageId
-			//  *AttachedDiskSpec_DiskSpec_SnapshotId
-			if cr.Spec.ForProvider.BootDiskSpec.Disk.Source == nil {
-				return managed.ExternalCreation{}, errors.Wrap(fmt.Errorf("source"), errRequiredField)
-			}
-			if cr.Spec.ForProvider.BootDiskSpec.Disk.Source.ImageID != "" {
-				bdsspk.Source = &compute_pb.AttachedDiskSpec_DiskSpec_ImageId{
-					ImageId: cr.Spec.ForProvider.BootDiskSpec.Disk.Source.ImageID,
-				}
-			} else if cr.Spec.ForProvider.BootDiskSpec.Disk.Source.SnapshotID != "" {
-				bdsspk.Source = &compute_pb.AttachedDiskSpec_DiskSpec_SnapshotId{
-					SnapshotId: cr.Spec.ForProvider.BootDiskSpec.Disk.Source.SnapshotID,
-				}
-			} else {
-				return managed.ExternalCreation{}, errors.Wrap(fmt.Errorf("'source' must have 'image_id' or 'snapshot_id"), errCreateInstance)
-			}
-			bds.Disk = &compute_pb.AttachedDiskSpec_DiskSpec_{
-				DiskSpec: bdsspk,
-			}
-		}
-	*/
 	bds, err := formDiskPb(cr.Spec.ForProvider.BootDiskSpec)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, errCreateInstance)
@@ -534,49 +529,92 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalUpdate{}, errors.New(errNotSubnetType)
 	}
 	fmt.Printf("update %+v", cr)
-	// TODO: this fields can be updated
 
-	// ID of the Instance resource to update.
-	// To get the instance ID, use a [InstanceService.List] request.
-	// InstanceId string `protobuf:"bytes,1,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
-	// // Field mask that specifies which fields of the Instance resource are going to be updated.
-	// UpdateMask *field_mask.FieldMask `protobuf:"bytes,2,opt,name=update_mask,json=updateMask,proto3" json:"update_mask,omitempty"`
-	// // Name of the instance.
-	// Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	// // Description of the instance.
-	// Description string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
-	// // Resource labels as `key:value` pairs.
-	// //
-	// // Existing set of `labels` is completely replaced by the provided set.
-	// Labels map[string]string `protobuf:"bytes,5,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	// // ID of the hardware platform configuration for the instance.
-	// // This field affects the available values in [resources_spec] field.
-	// //
-	// // Platforms allows you to create various types of instances: with a large amount of memory,
-	// // with a large number of cores, with a burstable performance.
-	// // For more information, see [Platforms](/docs/compute/concepts/vm-platforms).
-	// PlatformId string `protobuf:"bytes,6,opt,name=platform_id,json=platformId,proto3" json:"platform_id,omitempty"`
-	// // Computing resources of the instance, such as the amount of memory and number of cores.
-	// // To get a list of available values, see [Levels of core performance](/docs/compute/concepts/performance-levels).
-	// ResourcesSpec *ResourcesSpec `protobuf:"bytes,7,opt,name=resources_spec,json=resourcesSpec,proto3" json:"resources_spec,omitempty"`
-	// // The metadata `key:value` pairs that will be assigned to this instance. This includes custom metadata and predefined keys.
-	// // The total size of all keys and values must be less than 512 KB.
-	// //
-	// // Existing set of `metadata` is completely replaced by the provided set.
-	// //
-	// // Values are free-form strings, and only have meaning as interpreted by the programs which configure the instance.
-	// // The values must be 256 KB or less.
-	// //
-	// // For example, you may use the metadata in order to provide your public SSH key to the instance.
-	// // For more information, see [Metadata](/docs/compute/concepts/vm-metadata).
-	// Metadata map[string]string `protobuf:"bytes,8,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	// // ID of the service account to use for [authentication inside the instance](/docs/compute/operations/vm-connect/auth-inside-vm).
-	// // To get the service account ID, use a [yandex.cloud.iam.v1.ServiceAccountService.List] request.
-	// ServiceAccountId string `protobuf:"bytes,9,opt,name=service_account_id,json=serviceAccountId,proto3" json:"service_account_id,omitempty"`
-	// // Network settings.
-	// NetworkSettings *NetworkSettings `protobuf:"bytes,10,opt,name=network_settings,json=networkSettings,proto3" json:"network_settings,omitempty"`
-	// // Placement policy configuration.
-	// PlacementPolicy *PlacementPolicy `protobuf:"bytes,11,opt,name=placement_policy,json=placementPolicy,proto3" json:"placement_policy,omitempty"`
+	// if coreFractions set to 0 in spec, yc sets it to 100
+	if cr.Spec.ForProvider.Resources.CoreFraction == 0 {
+		cr.Spec.ForProvider.Resources.CoreFraction = 100
+	}
+	resources := &compute_pb.ResourcesSpec{
+		Cores:  cr.Spec.ForProvider.Resources.Cores,
+		Memory: cr.Spec.ForProvider.Resources.Memory,
+		Gpus:   cr.Spec.ForProvider.Resources.Gpus,
+	}
+
+	ns := fillNetworkSettingsPb(cr.Spec.ForProvider.NetworkSettings)
+	pp := fillPlacementPolicyPb(cr.Spec.ForProvider.PlacementPolicy)
+
+	ureq := &compute_pb.UpdateInstanceRequest{
+		InstanceId: cr.Status.AtProvider.ID,
+	}
+
+	needUpdate := false
+	paths := []string{}
+	if cr.Status.AtProvider.Name != cr.Spec.ForProvider.Name {
+		ureq.Name = cr.Spec.ForProvider.Name
+		needUpdate = true
+		paths = append(paths, "name")
+	}
+	if cr.Status.AtProvider.Description != cr.Spec.ForProvider.Description {
+		ureq.Description = cr.Spec.ForProvider.Description
+		needUpdate = true
+		paths = append(paths, "description")
+	}
+	if !reflect.DeepEqual(cr.Status.AtProvider.Labels, cr.Spec.ForProvider.Labels) {
+		ureq.Labels = cr.Spec.ForProvider.Labels
+		needUpdate = true
+		paths = append(paths, "labels")
+	}
+	if !reflect.DeepEqual(cr.Status.AtProvider.Metadata, cr.Spec.ForProvider.Metadata) {
+		ureq.Metadata = cr.Spec.ForProvider.Metadata
+		needUpdate = true
+		paths = append(paths, "metadata")
+	}
+	if cr.Status.AtProvider.PlatformID != cr.Spec.ForProvider.PlatformID {
+		ureq.PlatformId = cr.Spec.ForProvider.PlatformID
+		needUpdate = true
+		paths = append(paths, "platform_id")
+	}
+	if cr.Status.AtProvider.ServiceAccountID != cr.Spec.ForProvider.ServiceAccountID {
+		ureq.ServiceAccountId = cr.Spec.ForProvider.ServiceAccountID
+		needUpdate = true
+		paths = append(paths, "service_account_id")
+	}
+	if !reflect.DeepEqual(cr.Status.AtProvider.Resources, cr.Spec.ForProvider.Resources) {
+		// samodeyatelnost, TODO: update list of valid statuses
+		if cr.Status.AtProvider.Status != compute_pb.Instance_STOPPED.String() {
+			return managed.ExternalUpdate{}, errors.Wrap(fmt.Errorf("status: %s, should be %s", cr.Status.AtProvider.Status, compute_pb.Instance_STOPPED.String()), errUpdateInstance)
+		}
+		ureq.ResourcesSpec = resources
+		needUpdate = true
+		paths = append(paths, "resources_spec")
+	}
+	if cr.Spec.ForProvider.NetworkSettings != nil {
+		if !reflect.DeepEqual(cr.Status.AtProvider.NetworkSettings, cr.Spec.ForProvider.NetworkSettings) {
+			ureq.NetworkSettings = ns
+			needUpdate = true
+			paths = append(paths, "network_settings")
+		}
+	}
+	if cr.Spec.ForProvider.PlacementPolicy != nil {
+		if !reflect.DeepEqual(cr.Status.AtProvider.PlacementPolicy, cr.Spec.ForProvider.PlacementPolicy) {
+			ureq.PlacementPolicy = pp
+			needUpdate = true
+			paths = append(paths, "placement_policy")
+		}
+	}
+
+	if needUpdate {
+		// TODO: It's probably better to add UpdateMask to Spec
+		updateMask := &field_mask.FieldMask{Paths: paths}
+		ureq.UpdateMask = updateMask
+
+		fmt.Printf("\nPaths: %s\n", ureq.UpdateMask.Paths)
+		fmt.Printf("\nREQ: %s\n", ureq)
+		_, err := c.instance.Update(ctx, ureq)
+		if err != nil {
+			return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateInstance)
+		}
+	}
 
 	return managed.ExternalUpdate{
 		ConnectionDetails: managed.ConnectionDetails{},

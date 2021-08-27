@@ -31,6 +31,9 @@ spec:
     - jsonPath: .status.atProvider.created_at
       name: CREATED_AT
       type: string
+    - jsonPath: .status.atProvider.status
+      name: STATUS
+      type: string
     - jsonPath: .status.atProvider.labels
       name: LABELS
       type: string
@@ -445,8 +448,6 @@ spec:
                     type: string
                   created_at:
                     type: string
-                  default_security_group_id:
-                    type: string
                   description:
                     type: string
                   folder_id:
@@ -455,16 +456,77 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  metadata:
+                    additionalProperties:
+                      type: string
+                    type: object
                   name:
                     type: string
-                  zone_id:
+                  network_settings:
+                    properties:
+                      type:
+                        type: string
+                    required:
+                    - type
+                    type: object
+                  placement_policy:
+                    properties:
+                      host_affinity_rules:
+                        description: List of affinity rules. Scheduler will attempt to allocate instances according to order of rules.
+                        items:
+                          properties:
+                            key:
+                              description: Affinity label or one of reserved values - 'yc.hostId', 'yc.hostGroupId'
+                              type: string
+                            op:
+                              description: Include or exclude action
+                              type: string
+                            values:
+                              description: Affinity value or host ID or host group ID
+                              items:
+                                type: string
+                              type: array
+                          type: object
+                        type: array
+                      placement_group_id:
+                        description: Placement group ID.
+                        type: string
+                    type: object
+                  platform_id:
+                    type: string
+                  resources:
+                    description: ResourcesSpec describes resources of compute instance
+                    properties:
+                      core_fraction:
+                        description: Baseline level of CPU performance with the ability to burst performance above that baseline level. This field sets baseline performance for each core.
+                        format: int64
+                        type: integer
+                      cores:
+                        description: The number of cores available to the instance.
+                        format: int64
+                        type: integer
+                      gpus:
+                        description: The number of GPUs available to the instance.
+                        format: int64
+                        type: integer
+                      memory:
+                        description: The amount of memory available to the instance, specified in bytes.
+                        format: int64
+                        type: integer
+                    required:
+                    - cores
+                    - memory
+                    type: object
+                  service_account_id:
+                    type: string
+                  status:
                     type: string
                 required:
                 - ID
                 - created_at
                 - folder_id
                 - name
-                - zone_id
+                - status
                 type: object
               conditions:
                 description: Conditions of the resource.

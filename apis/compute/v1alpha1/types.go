@@ -254,14 +254,19 @@ type ComputeParameters struct {
 
 // ComputeObservation are the observable fields of a Compute.
 type ComputeObservation struct {
-	ID                     string            `json:"ID"`
-	FolderID               string            `json:"folder_id"`
-	CreatedAt              string            `json:"created_at"`
-	Name                   string            `json:"name"`
-	Labels                 map[string]string `json:"labels,omitempty"`
-	Description            string            `json:"description,omitempty"`
-	DefaultSecurityGroupID string            `json:"default_security_group_id,omitempty"`
-	ZoneID                 string            `json:"zone_id"`
+	ID               string            `json:"ID"`
+	FolderID         string            `json:"folder_id"`
+	CreatedAt        string            `json:"created_at"`
+	Name             string            `json:"name"`
+	Status           string            `json:"status"`
+	Labels           map[string]string `json:"labels,omitempty"`
+	Description      string            `json:"description,omitempty"`
+	Metadata         map[string]string `json:"metadata,omitempty"`
+	PlatformID       string            `json:"platform_id,omitempty"`
+	ServiceAccountID string            `json:"service_account_id,omitempty"`
+	Resources        *ResourcesSpec    `json:"resources,omitempty"`
+	NetworkSettings  *NetworkSettings  `json:"network_settings,omitempty"`
+	PlacementPolicy  *PlacementPolicy  `json:"placement_policy,omitempty"`
 }
 
 // A ComputeSpec defines the desired state of a Compute.
@@ -284,6 +289,7 @@ type ComputeStatus struct {
 // +kubebuilder:printcolumn:name="YC_NAME",type="string",JSONPath=".status.atProvider.name"
 // +kubebuilder:printcolumn:name="FOLDER_ID",type="string",JSONPath=".status.atProvider.folder_id"
 // +kubebuilder:printcolumn:name="CREATED_AT",type="string",JSONPath=".status.atProvider.created_at"
+// +kubebuilder:printcolumn:name="STATUS",type="string",JSONPath=".status.atProvider.status"
 // +kubebuilder:printcolumn:name="LABELS",type="string",JSONPath=".status.atProvider.labels"
 // +kubebuilder:printcolumn:name="DESCRIPTION",type="string",JSONPath=".status.atProvider.description"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
