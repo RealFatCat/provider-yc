@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: provider-yc
+  labels:
+    app: provider-yc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: provider-yc
+  template:
+    metadata:
+      labels:
+        app: provider-yc
+    spec:
+      containers:
+        - name: provider-yc-controller
+          image: cr.yandex/crpq165pjbjiprv8pfri/crossplane/provider-yc:yandex-v0.1
+          args: ['-d']
+          ports:
+            - containerPort: 8080
