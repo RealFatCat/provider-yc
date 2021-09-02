@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: provider-yc-controller
-          image: cr.yandex/crpq165pjbjiprv8pfri/crossplane/provider-yc:yandex-v0.1
+          image: cr.yandex/crpq165pjbjiprv8pfri/crossplane/provider-yc:yandex-v0.1.1
           args: ['-d']
           ports:
             - containerPort: 8080

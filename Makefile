@@ -2,7 +2,7 @@
 SHELL := /bin/bash
 
 # Options
-ORG_NAME=yandex-team
+ORG_NAME=cr.yandex/crpq165pjbjiprv8pfri/crossplane
 PROVIDER_NAME=provider-yc
 
 build: generate test

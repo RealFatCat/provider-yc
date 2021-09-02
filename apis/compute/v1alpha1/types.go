@@ -50,7 +50,7 @@ const (
 )
 
 type DiskPlacementPolicy struct {
-	PlacementGroupID string `json:"placement_group_id"`
+	PlacementGroupID string `json:"placement_group_id,omitempty"`
 }
 
 type SourceSpec struct {
@@ -81,7 +81,7 @@ type DiskSpec struct {
 	BlockSize int64 `json:"block_size,omitempty"`
 	// Placement policy configuration.
 	// +optional
-	DiskPlacementPolicy *DiskPlacementPolicy `json:"disk_placement_policy"`
+	DiskPlacementPolicy *DiskPlacementPolicy `json:"disk_placement_policy,omitempty"`
 	// Types that are assignable to Source:
 	//  *AttachedDiskSpec_DiskSpec_ImageId
 	//  *AttachedDiskSpec_DiskSpec_SnapshotId
@@ -142,7 +142,7 @@ type PrimaryAddressSpec struct {
 	OneToOneNatSpec *OneToOneNatSpec `json:"one_to_one_nat"`
 	// Internal DNS configuration
 	// +optional
-	DnsRecords []*DnsRecord `json:"dns_records"`
+	DnsRecords []*DnsRecord `json:"dns_records,omitempty"`
 }
 
 type SchedulingPolicy struct {
@@ -150,7 +150,7 @@ type SchedulingPolicy struct {
 }
 
 type NetworkSettings struct {
-	Type string `json:"type"`
+	Type string `json:"type,omitempty"`
 }
 
 type PlacementPolicy_HostAffinityRule struct {
@@ -210,7 +210,7 @@ type ComputeParameters struct {
 	PlatformID string `json:"platform_id"`
 	// Computing resources of the instance, such as the amount of memory and number of cores.
 	// To get a list of available values, see [Levels of core performance](/docs/compute/concepts/performance-levels).
-	Resources *ResourcesSpec `json:"resources,omitempty"` // was pointer
+	Resources *ResourcesSpec `json:"resources"` // was pointer
 	// The metadata `key:value` pairs that will be assigned to this instance. This includes custom metadata and predefined keys.
 	// The total size of all keys and values must be less than 512 KB.
 	//
@@ -222,14 +222,14 @@ type ComputeParameters struct {
 	// +optional
 	Metadata map[string]string `json:"metadata,omitempty"`
 	// Boot disk to attach to the instance.
-	BootDiskSpec *AttachedDiskSpec `json:"boot_disk,omitempty"` // was pointer
+	BootDiskSpec *AttachedDiskSpec `json:"boot_disk,omitempty"`
 	// Array of secondary disks to attach to the instance.
 	// +optional
-	SecondaryDisks []*AttachedDiskSpec `json:"secondary_disks,omitempty"` // was slice of pointers
+	SecondaryDisks []*AttachedDiskSpec `json:"secondary_disks,omitempty"`
 	// Network configuration for the instance. Specifies how the network interface is configured
 	// to interact with other services on the internal network and on the internet.
 	// Currently only one network interface is supported per instance.
-	NetworkInterfaces []*NetworkInterfaceSpec `json:"network_interfaces,omitempty"` // was slice of pointers
+	NetworkInterfaces []*NetworkInterfaceSpec `json:"network_interfaces,omitempty"`
 	// Host name for the instance.
 	// This field is used to generate the [yandex.cloud.compute.v1.Instance.fqdn] value.
 	// The host name must be unique within the network and region.
@@ -239,17 +239,17 @@ type ComputeParameters struct {
 	Hostname string `json:"hostname,omitempty"`
 	// Scheduling policy configuration.
 	// +optional
-	SchedulingPolicy *SchedulingPolicy `json:"scheduling_policy,omitempty"` // was pointer
+	SchedulingPolicy *SchedulingPolicy `json:"scheduling_policy,omitempty"`
 	// ID of the service account to use for [authentication inside the instance](/docs/compute/operations/vm-connect/auth-inside-vm).
 	// To get the service account ID, use a [yandex.cloud.iam.v1.ServiceAccountService.List] request.
 	// +optional
 	ServiceAccountID string `json:"service_account_id,omitempty"`
 	// Network settings.
 	// +optional
-	NetworkSettings *NetworkSettings `json:"network_settings,omitempty"` // was pointer
+	NetworkSettings *NetworkSettings `json:"network_settings,omitempty"`
 	// Placement policy configuration.
 	// +optional
-	PlacementPolicy *PlacementPolicy `json:"placement_policy,omitempty"` // was pointer
+	PlacementPolicy *PlacementPolicy `json:"placement_policy,omitempty"`
 }
 
 // ComputeObservation are the observable fields of a Compute.
