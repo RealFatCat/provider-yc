@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: provider-yc
+  namespace: crossplane-system
   labels:
     app: provider-yc
 spec:
@@ -14,6 +15,7 @@ spec:
       labels:
         app: provider-yc
     spec:
+      serviceAccountName: crossplane
       containers:
         - name: provider-yc-controller
           image: cr.yandex/crpq165pjbjiprv8pfri/crossplane/provider-yc:yandex-v0.1.1

@@ -23,6 +23,6 @@ spec:
         primary_v4_address:
           one_to_one_nat:
             ip_version: IPV4
-    description: "yc subnet created via kubectl"
+    description: "yc compute instance created via kubectl"
   providerConfigRef:
     name: test-yc
