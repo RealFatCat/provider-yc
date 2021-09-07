@@ -39,12 +39,12 @@ var (
 
 // ComputeType type metadata.
 var (
-	ComputeTypeKind             = reflect.TypeOf(Compute{}).Name()
-	ComputeTypeGroupKind        = schema.GroupKind{Group: Group, Kind: ComputeTypeKind}.String()
-	ComputeTypeKindAPIVersion   = ComputeTypeKind + "." + SchemeGroupVersion.String()
-	ComputeTypeGroupVersionKind = SchemeGroupVersion.WithKind(ComputeTypeKind)
+	InstanceTypeKind             = reflect.TypeOf(Instance{}).Name()
+	InstanceTypeGroupKind        = schema.GroupKind{Group: Group, Kind: InstanceTypeKind}.String()
+	InstanceTypeKindAPIVersion   = InstanceTypeKind + "." + SchemeGroupVersion.String()
+	InstanceTypeGroupVersionKind = SchemeGroupVersion.WithKind(InstanceTypeKind)
 )
 
 func init() {
-	SchemeBuilder.Register(&Compute{}, &ComputeList{})
+	SchemeBuilder.Register(&Instance{}, &InstanceList{})
 }

@@ -1,5 +1,5 @@
 apiVersion: compute.yc.yandex-team.ru/v1alpha1
-kind: Compute
+kind: Instance
 metadata:
   name: kuber-compute-instance
 spec:

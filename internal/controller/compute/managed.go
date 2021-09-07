@@ -71,14 +71,14 @@ const (
 
 // Setup adds a controller that reconciles SubnetType managed resources.
 func Setup(mgr ctrl.Manager, l logging.Logger, rl workqueue.RateLimiter) error {
-	name := managed.ControllerName(v1alpha1.ComputeTypeGroupKind)
+	name := managed.ControllerName(v1alpha1.InstanceTypeGroupKind)
 
 	o := controller.Options{
 		RateLimiter: ratelimiter.NewDefaultManagedRateLimiter(rl),
 	}
 
 	r := managed.NewReconciler(mgr,
-		resource.ManagedKind(v1alpha1.ComputeTypeGroupVersionKind),
+		resource.ManagedKind(v1alpha1.InstanceTypeGroupVersionKind),
 		managed.WithExternalConnecter(&connector{
 			client: mgr.GetClient(),
 		}),
@@ -88,7 +88,7 @@ func Setup(mgr ctrl.Manager, l logging.Logger, rl workqueue.RateLimiter) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).
 		WithOptions(o).
-		For(&v1alpha1.Compute{}).
+		For(&v1alpha1.Instance{}).
 		Complete(r)
 }
 
@@ -106,7 +106,7 @@ type connector struct {
 func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.ExternalClient, error) {
 	// TODO: Most of this function should be in some AUTH package
 	fmt.Println("Connecting")
-	cr, ok := mg.(*v1alpha1.Compute)
+	cr, ok := mg.(*v1alpha1.Instance)
 	if !ok {
 		return nil, errors.New(errNotSubnetType)
 	}
@@ -154,7 +154,7 @@ type external struct {
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
-	cr, ok := mg.(*v1alpha1.Compute)
+	cr, ok := mg.(*v1alpha1.Instance)
 	if !ok {
 		return managed.ExternalObservation{}, errors.New(errNotSubnetType)
 	}
@@ -388,7 +388,7 @@ func fillPlacementPolicyPb(pp *v1alpha1.PlacementPolicy) *compute_pb.PlacementPo
 // TODO: validate functions required
 // TODO: split this supermassive black hole into functions
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
-	cr, ok := mg.(*v1alpha1.Compute)
+	cr, ok := mg.(*v1alpha1.Instance)
 	if !ok {
 		return managed.ExternalCreation{}, errors.New(errNotSubnetType)
 	}
@@ -524,7 +524,7 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 }
 
 func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.ExternalUpdate, error) {
-	cr, ok := mg.(*v1alpha1.Compute)
+	cr, ok := mg.(*v1alpha1.Instance)
 	if !ok {
 		return managed.ExternalUpdate{}, errors.New(errNotSubnetType)
 	}
@@ -622,7 +622,7 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 }
 
 func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
-	cr, ok := mg.(*v1alpha1.Compute)
+	cr, ok := mg.(*v1alpha1.Instance)
 	if !ok {
 		return errors.New(errNotSubnetType)
 	}

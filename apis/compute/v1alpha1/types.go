@@ -184,9 +184,9 @@ type NetworkInterfaceSpec struct {
 	SecurityGroupIds []string `json:"security_group_ids,omitempty"`
 }
 
-// ComputeParameters are the configurable fields of a Compute.
+// InstanceParameters are the configurable fields of a Instance.
 // This looks bad. Try use pb from go-sdk
-type ComputeParameters struct {
+type InstanceParameters struct {
 	// ID of the folder to create an instance in.
 	// To get the folder ID, use a [yandex.cloud.resourcemanager.v1.FolderService.List] request.
 	FolderID string `json:"folder_id"`
@@ -252,8 +252,8 @@ type ComputeParameters struct {
 	PlacementPolicy *PlacementPolicy `json:"placement_policy,omitempty"`
 }
 
-// ComputeObservation are the observable fields of a Compute.
-type ComputeObservation struct {
+// InstanceObservation are the observable fields of a Instance.
+type InstanceObservation struct {
 	ID               string            `json:"ID"`
 	FolderID         string            `json:"folder_id"`
 	CreatedAt        string            `json:"created_at"`
@@ -269,21 +269,21 @@ type ComputeObservation struct {
 	PlacementPolicy  *PlacementPolicy  `json:"placement_policy,omitempty"`
 }
 
-// A ComputeSpec defines the desired state of a Compute.
-type ComputeSpec struct {
+// An InstanceSpec defines the desired state of a Instance.
+type InstanceSpec struct {
 	xpv1.ResourceSpec `json:",inline"`
-	ForProvider       ComputeParameters `json:"forProvider"`
+	ForProvider       InstanceParameters `json:"forProvider"`
 }
 
-// A ComputeStatus represents the observed state of a Compute.
-type ComputeStatus struct {
+// An InstanceStatus represents the observed state of a Instance.
+type InstanceStatus struct {
 	xpv1.ResourceStatus `json:",inline"`
-	AtProvider          ComputeObservation `json:"atProvider,omitempty"`
+	AtProvider          InstanceObservation `json:"atProvider,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// A Compute is an API type for YC provider
+// An Instance is an API type for YC provider
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="ID",type="string",JSONPath=".status.atProvider.ID"
 // +kubebuilder:printcolumn:name="YC_NAME",type="string",JSONPath=".status.atProvider.name"
@@ -294,19 +294,19 @@ type ComputeStatus struct {
 // +kubebuilder:printcolumn:name="DESCRIPTION",type="string",JSONPath=".status.atProvider.description"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:scope=Cluster,categories={crossplane,managed,yc}
-type Compute struct {
+type Instance struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ComputeSpec   `json:"spec"`
-	Status ComputeStatus `json:"status,omitempty"`
+	Spec   InstanceSpec   `json:"spec"`
+	Status InstanceStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// ComputeList contains a list of Compute
-type ComputeList struct {
+// InstanceList contains a list of Instance
+type InstanceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Compute `json:"items"`
+	Items           []Instance `json:"items"`
 }
