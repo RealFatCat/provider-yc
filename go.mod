@@ -5,10 +5,10 @@ go 1.17
 require (
 	github.com/crossplane/crossplane-runtime v0.13.0
 	github.com/crossplane/crossplane-tools v0.0.0-20210320162312-1baca298c527
-	github.com/google/go-cmp v0.5.2
 	github.com/pkg/errors v0.9.1
 	github.com/yandex-cloud/go-genproto v0.0.0-20210816122645-072f0f433ffb
 	github.com/yandex-cloud/go-sdk v0.0.0-20210816123146-aedab61cdc84
+	google.golang.org/genproto v0.0.0-20201110150050-8816d57aaa9a
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	k8s.io/apimachinery v0.20.1
 	k8s.io/client-go v0.20.1
@@ -34,6 +34,7 @@ require (
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.4.3 // indirect
+	github.com/google/go-cmp v0.5.2 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/googleapis/gnostic v0.5.1 // indirect
@@ -69,7 +70,6 @@ require (
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.1.0 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
-	google.golang.org/genproto v0.0.0-20201110150050-8816d57aaa9a // indirect
 	google.golang.org/grpc v1.28.0 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
