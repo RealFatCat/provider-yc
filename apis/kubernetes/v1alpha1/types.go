@@ -74,7 +74,7 @@ type MasterSpec_MasterType struct {
 type MasterMaintenancePolicy struct {
 	// If set to true, automatic updates are installed in the specified period of time with no interaction from the user.
 	// If set to false, automatic upgrades are disabled.
-	// +optional
+	// +kubebuilder:validation:Required
 	AutoUpgrade bool `json:"auto_upgrade,omitempty"`
 	// Maintenance window settings. Update will start at the specified time and last no more than the specified duration.
 	// The time is set in UTC.
@@ -170,7 +170,7 @@ type MasterSpec struct {
 	// Types that are assignable to MasterType:
 	//	*MasterSpec_ZonalMasterSpec
 	//	*MasterSpec_RegionalMasterSpec
-	// +optional
+	// +kubebuilder:validation:Required
 	MasterType MasterSpec_MasterType `json:"master_type"`
 	// Version of Kubernetes components that runs on the master.
 	// +optional
@@ -240,8 +240,10 @@ type Cluster_GatewayIpv4Address struct {
 type ClusterParameters struct {
 	// ID of the folder to create an instance in.
 	// To get the folder ID, use a [yandex.cloud.resourcemanager.v1.FolderService.List] request.
+	// +kubebuilder:validation:Required
 	FolderID string `json:"folder_id"`
 	// Name of the instance.
+	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 	// Description of the instance.
 	// +optional
@@ -251,11 +253,13 @@ type ClusterParameters struct {
 	Labels map[string]string `json:"labels,omitempty"`
 	// ID of the availability zone where the instance resides.
 	// To get a list of available zones, use the [yandex.cloud.compute.v1.ZoneService.List] request
+	// +kubebuilder:validation:Required
 	ZoneID string `json:"zone_id,omitempty"`
 	// ID of the network.
+	// +kubebuilder:validation:Required
 	NetworkId string `json:"network_id,omitempty"`
 	// IP allocation policy of the Kubernetes cluster.
-	// +optional
+	// +kubebuilder:validation:Required
 	MasterSpec *MasterSpec `json:"master_spec,omitempty"`
 	// IP allocation policy of the Kubernetes cluster.
 	// +optional
@@ -264,16 +268,17 @@ type ClusterParameters struct {
 	//	*CreateClusterRequest_GatewayIpv4Address
 	// For no there is only one implementation of gateway
 	// +optional
-	InternetGateway *Cluster_GatewayIpv4Address `json:"internet_gateway"`
+	InternetGateway *Cluster_GatewayIpv4Address `json:"internet_gateway,omitempty"`
 	// Service account to be used for provisioning Compute Cloud and VPC resources for Kubernetes cluster.
 	// Selected service account should have `edit` role on the folder where the Kubernetes cluster will be
 	// located and on the folder where selected network resides.
-	// +optional
+	// +kubebuilder:validation:Required
 	ServiceAccountId string `json:"service_account_id,omitempty"`
 	// Service account to be used by the worker nodes of the Kubernetes cluster to access Container Registry or to push node logs and metrics.
-	// +optional
+	// +kubebuilder:validation:Required
 	NodeServiceAccountId string `json:"node_service_account_id,omitempty"`
 	// Release channel for the master.
+	// +kubebuilder:validation:Required
 	ReleaseChannel string `json:"release_channel,omitempty"`
 	// +optional
 	NetworkPolicy *NetworkPolicy `json:"network_policy,omitempty"`
@@ -284,7 +289,7 @@ type ClusterParameters struct {
 	//	*CreateClusterRequest_Cilium
 	// For now there is only one implementation
 	// +optional
-	NetworkImplementation *Cluster_Cilium `json:"network_implementation"`
+	NetworkImplementation *Cluster_Cilium `json:"network_implementation,omitempty"`
 }
 
 // ClusterObservation are the observable fields of a Cluster.
