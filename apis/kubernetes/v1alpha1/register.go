@@ -39,12 +39,12 @@ var (
 
 // ComputeType type metadata.
 var (
-	InstanceTypeKind             = reflect.TypeOf(Instance{}).Name()
-	InstanceTypeGroupKind        = schema.GroupKind{Group: Group, Kind: InstanceTypeKind}.String()
-	InstanceTypeKindAPIVersion   = InstanceTypeKind + "." + SchemeGroupVersion.String()
-	InstanceTypeGroupVersionKind = SchemeGroupVersion.WithKind(InstanceTypeKind)
+	ClusterTypeKind             = reflect.TypeOf(Cluster{}).Name()
+	ClusterTypeGroupKind        = schema.GroupKind{Group: Group, Kind: ClusterTypeKind}.String()
+	ClusterTypeKindAPIVersion   = ClusterTypeKind + "." + SchemeGroupVersion.String()
+	ClusterTypeGroupVersionKind = SchemeGroupVersion.WithKind(ClusterTypeKind)
 )
 
 func init() {
-	SchemeBuilder.Register(&Instance{}, &InstanceList{})
+	SchemeBuilder.Register(&Cluster{}, &ClusterList{})
 }

@@ -237,7 +237,7 @@ type Cluster_GatewayIpv4Address struct {
 }
 
 // ClusterParameters are the configurable fields of a Cluster.
-type InstanceParameters struct {
+type ClusterParameters struct {
 	// ID of the folder to create an instance in.
 	// To get the folder ID, use a [yandex.cloud.resourcemanager.v1.FolderService.List] request.
 	FolderID string `json:"folder_id"`
@@ -287,8 +287,8 @@ type InstanceParameters struct {
 	NetworkImplementation *Cluster_Cilium `json:"network_implementation"`
 }
 
-// InstanceObservation are the observable fields of a Instance.
-type InstanceObservation struct {
+// ClusterObservation are the observable fields of a Cluster.
+type ClusterObservation struct {
 	ID          string            `json:"ID"`
 	FolderID    string            `json:"folder_id"`
 	CreatedAt   string            `json:"created_at"`
@@ -297,44 +297,39 @@ type InstanceObservation struct {
 	Description string            `json:"description,omitempty"`
 }
 
-// An InstanceSpec defines the desired state of a Instance.
-type InstanceSpec struct {
+// An ClusterSpec defines the desired state of a Cluster.
+type ClusterSpec struct {
 	xpv1.ResourceSpec `json:",inline"`
-	ForProvider       InstanceParameters `json:"forProvider"`
+	ForProvider       ClusterParameters `json:"forProvider"`
 }
 
-// An InstanceStatus represents the observed state of a Instance.
-type InstanceStatus struct {
+// An ClusterStatus represents the observed state of a Cluster.
+type ClusterStatus struct {
 	xpv1.ResourceStatus `json:",inline"`
-	AtProvider          InstanceObservation `json:"atProvider,omitempty"`
+	AtProvider          ClusterObservation `json:"atProvider,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// An Instance is an API type for YC provider
+// An Cluster is an API type for YC Kubernetes Cluster provider
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="ID",type="string",JSONPath=".status.atProvider.ID"
 // +kubebuilder:printcolumn:name="YC_NAME",type="string",JSONPath=".status.atProvider.name"
-// +kubebuilder:printcolumn:name="FOLDER_ID",type="string",JSONPath=".status.atProvider.folder_id"
-// +kubebuilder:printcolumn:name="CREATED_AT",type="string",JSONPath=".status.atProvider.created_at"
 // +kubebuilder:printcolumn:name="STATUS",type="string",JSONPath=".status.atProvider.status"
-// +kubebuilder:printcolumn:name="LABELS",type="string",JSONPath=".status.atProvider.labels"
-// +kubebuilder:printcolumn:name="DESCRIPTION",type="string",JSONPath=".status.atProvider.description"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:scope=Cluster,categories={crossplane,managed,yc}
-type Instance struct {
+type Cluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   InstanceSpec   `json:"spec"`
-	Status InstanceStatus `json:"status,omitempty"`
+	Spec   ClusterSpec   `json:"spec"`
+	Status ClusterStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// InstanceList contains a list of Instance
-type InstanceList struct {
+// ClusterList contains a list of Instance
+type ClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Instance `json:"items"`
+	Items           []Cluster `json:"items"`
 }
