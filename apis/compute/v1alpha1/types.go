@@ -288,10 +288,7 @@ type InstanceStatus struct {
 // +kubebuilder:printcolumn:name="ID",type="string",JSONPath=".status.atProvider.ID"
 // +kubebuilder:printcolumn:name="YC_NAME",type="string",JSONPath=".status.atProvider.name"
 // +kubebuilder:printcolumn:name="FOLDER_ID",type="string",JSONPath=".status.atProvider.folder_id"
-// +kubebuilder:printcolumn:name="CREATED_AT",type="string",JSONPath=".status.atProvider.created_at"
 // +kubebuilder:printcolumn:name="STATUS",type="string",JSONPath=".status.atProvider.status"
-// +kubebuilder:printcolumn:name="LABELS",type="string",JSONPath=".status.atProvider.labels"
-// +kubebuilder:printcolumn:name="DESCRIPTION",type="string",JSONPath=".status.atProvider.description"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:scope=Cluster,categories={crossplane,managed,yc}
 type Instance struct {

@@ -61,10 +61,6 @@ type NetworkStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="ID",type="string",JSONPath=".status.atProvider.ID"
 // +kubebuilder:printcolumn:name="YC_NAME",type="string",JSONPath=".status.atProvider.name"
-// +kubebuilder:printcolumn:name="FOLDER_ID",type="string",JSONPath=".status.atProvider.folder_id"
-// +kubebuilder:printcolumn:name="CREATED_AT",type="string",JSONPath=".status.atProvider.created_at"
-// +kubebuilder:printcolumn:name="LABELS",type="string",JSONPath=".status.atProvider.labels"
-// +kubebuilder:printcolumn:name="DESCRIPTION",type="string",JSONPath=".status.atProvider.description"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:scope=Cluster,categories={crossplane,managed,yc}
 type Network struct {
@@ -142,13 +138,10 @@ type SubnetStatus struct {
 
 // A Subnet is an API type for YC provider
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="ID",type="string",JSONPath=".status.atProvider.ID"
 // +kubebuilder:printcolumn:name="YC_NAME",type="string",JSONPath=".status.atProvider.name"
-// +kubebuilder:printcolumn:name="NETWORK_ID",type="string",JSONPath=".status.atProvider.network_id"
 // +kubebuilder:printcolumn:name="NETWORK_NAME",type="string",JSONPath=".status.atProvider.network_name"
 // +kubebuilder:printcolumn:name="RANGE",type="string",JSONPath=".status.atProvider.range"
 // +kubebuilder:printcolumn:name="ZONE_ID",type="string",JSONPath=".status.atProvider.zone_id"
-// +kubebuilder:printcolumn:name="DESCRIPTION",type="string",JSONPath=".status.atProvider.description"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:scope=Cluster,categories={crossplane,managed,yc}
 type Subnet struct {

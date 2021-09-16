@@ -19,14 +19,8 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.atProvider.ID
-      name: ID
-      type: string
     - jsonPath: .status.atProvider.name
       name: YC_NAME
-      type: string
-    - jsonPath: .status.atProvider.network_id
-      name: NETWORK_ID
       type: string
     - jsonPath: .status.atProvider.network_name
       name: NETWORK_NAME
@@ -36,9 +30,6 @@ spec:
       type: string
     - jsonPath: .status.atProvider.zone_id
       name: ZONE_ID
-      type: string
-    - jsonPath: .status.atProvider.description
-      name: DESCRIPTION
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: AGE

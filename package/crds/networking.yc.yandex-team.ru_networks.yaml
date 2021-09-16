@@ -25,18 +25,6 @@ spec:
     - jsonPath: .status.atProvider.name
       name: YC_NAME
       type: string
-    - jsonPath: .status.atProvider.folder_id
-      name: FOLDER_ID
-      type: string
-    - jsonPath: .status.atProvider.created_at
-      name: CREATED_AT
-      type: string
-    - jsonPath: .status.atProvider.labels
-      name: LABELS
-      type: string
-    - jsonPath: .status.atProvider.description
-      name: DESCRIPTION
-      type: string
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
