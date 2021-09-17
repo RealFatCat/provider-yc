@@ -266,64 +266,117 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalCreation{}, errors.Wrap(fmt.Errorf("zonal_master_spec or regional_master_spec should be present, got none"), errCreateCluster)
 	}
 
-	pbMasterSpec.MaintenancePolicy = &k8s_pb.MasterMaintenancePolicy{
-		AutoUpgrade: cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.AutoUpgrade,
-	}
-	pbMaintenanceWindow := &k8s_pb.MaintenanceWindow{}
-	if cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.Anytime != nil {
-		pbMaintenanceWindow.Policy = &k8s_pb.MaintenanceWindow_Anytime{}
-	} else if cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow != nil {
-		pbMaintenanceWindow.Policy = &k8s_pb.MaintenanceWindow_DailyMaintenanceWindow{
-			DailyMaintenanceWindow: &k8s_pb.DailyMaintenanceWindow{
-				StartTime: &timeofday.TimeOfDay{
-					Hours:   cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Hours,
-					Minutes: cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Minutes,
-					Seconds: cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Seconds,
-					Nanos:   cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Nanos,
-				},
-				Duration: &duration.Duration{
-					Seconds: cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.Duration.Seconds,
-					Nanos:   cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.Duration.Nanos,
-				},
-			},
+	// Maintenance_Policy
+	if cr.Spec.ForProvider.MasterSpec.MaintenancePolicy != nil {
+		pbMasterSpec.MaintenancePolicy = &k8s_pb.MasterMaintenancePolicy{
+			AutoUpgrade: cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.AutoUpgrade,
 		}
-	} else if cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.WeeklyMaintenanceWindow != nil {
-		pbDaysOfWeek := []*k8s_pb.DaysOfWeekMaintenanceWindow{}
-		for _, days := range cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.WeeklyMaintenanceWindow.DaysOfWeek {
-			pbDays := []dayofweek.DayOfWeek{}
-			var pbd dayofweek.DayOfWeek
-			for _, d := range days.Days {
-				if val, ok := dayofweek.DayOfWeek_value[d]; ok {
-					pbd = dayofweek.DayOfWeek(val)
-				} else {
-					pbd = dayofweek.DayOfWeek_DAY_OF_WEEK_UNSPECIFIED
+		pbMaintenanceWindow := &k8s_pb.MaintenanceWindow{}
+		if cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.Anytime != nil {
+			pbMaintenanceWindow.Policy = &k8s_pb.MaintenanceWindow_Anytime{}
+		} else if cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow != nil {
+			pbMaintenanceWindow.Policy = &k8s_pb.MaintenanceWindow_DailyMaintenanceWindow{
+				DailyMaintenanceWindow: &k8s_pb.DailyMaintenanceWindow{
+					StartTime: &timeofday.TimeOfDay{
+						Hours:   cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Hours,
+						Minutes: cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Minutes,
+						Seconds: cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Seconds,
+						Nanos:   cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Nanos,
+					},
+					Duration: &duration.Duration{
+						Seconds: cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.Duration.Seconds,
+						Nanos:   cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.Duration.Nanos,
+					},
+				},
+			}
+		} else if cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.WeeklyMaintenanceWindow != nil {
+			pbDaysOfWeek := []*k8s_pb.DaysOfWeekMaintenanceWindow{}
+			for _, days := range cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.WeeklyMaintenanceWindow.DaysOfWeek {
+				pbDays := []dayofweek.DayOfWeek{}
+				var pbd dayofweek.DayOfWeek
+				for _, d := range days.Days {
+					if val, ok := dayofweek.DayOfWeek_value[d]; ok {
+						pbd = dayofweek.DayOfWeek(val)
+					} else {
+						pbd = dayofweek.DayOfWeek_DAY_OF_WEEK_UNSPECIFIED
+					}
+					pbDays = append(pbDays, pbd)
 				}
-				pbDays = append(pbDays, pbd)
+				pbDayOfWeek := &k8s_pb.DaysOfWeekMaintenanceWindow{
+					StartTime: &timeofday.TimeOfDay{
+						Hours:   days.StartTime.Hours,
+						Minutes: days.StartTime.Minutes,
+						Seconds: days.StartTime.Seconds,
+						Nanos:   days.StartTime.Nanos,
+					},
+					Duration: &duration.Duration{
+						Seconds: days.Duration.Seconds,
+						Nanos:   days.Duration.Nanos,
+					},
+					Days: pbDays,
+				}
+				pbDaysOfWeek = append(pbDaysOfWeek, pbDayOfWeek)
 			}
-			pbDayOfWeek := &k8s_pb.DaysOfWeekMaintenanceWindow{
-				StartTime: &timeofday.TimeOfDay{
-					Hours:   days.StartTime.Hours,
-					Minutes: days.StartTime.Minutes,
-					Seconds: days.StartTime.Seconds,
-					Nanos:   days.StartTime.Nanos,
-				},
-				Duration: &duration.Duration{
-					Seconds: days.Duration.Seconds,
-					Nanos:   days.Duration.Nanos,
-				},
-				Days: pbDays,
-			}
-			pbDaysOfWeek = append(pbDaysOfWeek, pbDayOfWeek)
-		}
 
-		pbMaintenanceWindow.Policy = &k8s_pb.MaintenanceWindow_WeeklyMaintenanceWindow{
-			WeeklyMaintenanceWindow: &k8s_pb.WeeklyMaintenanceWindow{
-				DaysOfWeek: pbDaysOfWeek,
+			pbMaintenanceWindow.Policy = &k8s_pb.MaintenanceWindow_WeeklyMaintenanceWindow{
+				WeeklyMaintenanceWindow: &k8s_pb.WeeklyMaintenanceWindow{
+					DaysOfWeek: pbDaysOfWeek,
+				},
+			}
+		}
+		pbMasterSpec.MaintenancePolicy.MaintenanceWindow = pbMaintenanceWindow
+	}
+	req.MasterSpec = pbMasterSpec
+
+	// IpAllocationPolicy
+	req.IpAllocationPolicy = &k8s_pb.IPAllocationPolicy{
+		ClusterIpv4CidrBlock: cr.Spec.ForProvider.IpAllocationPolicy.ClusterIpv4CidrBlock,
+		NodeIpv4CidrMaskSize: cr.Spec.ForProvider.IpAllocationPolicy.NodeIpv4CidrMaskSize,
+		ServiceIpv4CidrBlock: cr.Spec.ForProvider.IpAllocationPolicy.ServiceIpv4CidrBlock,
+		ClusterIpv6CidrBlock: cr.Spec.ForProvider.IpAllocationPolicy.ClusterIpv6CidrBlock,
+		ServiceIpv6CidrBlock: cr.Spec.ForProvider.IpAllocationPolicy.ServiceIpv6CidrBlock,
+	}
+
+	// internet gateway
+	if cr.Spec.ForProvider.InternetGateway != nil {
+		req.InternetGateway = &k8s_pb.CreateClusterRequest_GatewayIpv4Address{
+			GatewayIpv4Address: cr.Spec.ForProvider.InternetGateway.GatewayIpv4Address,
+		}
+	}
+	// Network policy
+	if cr.Spec.ForProvider.NetworkPolicy != nil {
+		var provider k8s_pb.NetworkPolicy_Provider
+		val, ok := k8s_pb.NetworkPolicy_Provider_value[cr.Spec.ForProvider.NetworkPolicy.Provider]
+		if ok {
+			provider = k8s_pb.NetworkPolicy_Provider(val)
+		} else {
+			provider = k8s_pb.NetworkPolicy_PROVIDER_UNSPECIFIED
+		}
+		req.NetworkPolicy = &k8s_pb.NetworkPolicy{
+			Provider: provider,
+		}
+	}
+	// KMS Provider
+	if cr.Spec.ForProvider.KmsProvider != nil {
+		req.KmsProvider = &k8s_pb.KMSProvider{
+			KeyId: cr.Spec.ForProvider.KmsProvider.KeyId,
+		}
+	}
+	if cr.Spec.ForProvider.NetworkImplementation != nil {
+		// for now, there is only one option and it is cilium
+		var rm k8s_pb.Cilium_RoutingMode
+		val, ok := k8s_pb.Cilium_RoutingMode_value[cr.Spec.ForProvider.NetworkImplementation.Cilium.RoutingMode]
+		if ok {
+			rm = k8s_pb.Cilium_RoutingMode(val)
+		} else {
+			rm = k8s_pb.Cilium_ROUTING_MODE_UNSPECIFIED
+		}
+		req.NetworkImplementation = &k8s_pb.CreateClusterRequest_Cilium{
+			Cilium: &k8s_pb.Cilium{
+				RoutingMode: rm,
 			},
 		}
 	}
-	pbMasterSpec.MaintenancePolicy.MaintenanceWindow = pbMaintenanceWindow
-	req.MasterSpec = pbMasterSpec
 
 	// End of all fills
 	if _, err := c.client.Create(ctx, req); err != nil {

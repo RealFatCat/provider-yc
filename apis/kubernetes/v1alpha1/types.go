@@ -78,7 +78,7 @@ type MasterMaintenancePolicy struct {
 	AutoUpgrade bool `json:"auto_upgrade,omitempty"`
 	// Maintenance window settings. Update will start at the specified time and last no more than the specified duration.
 	// The time is set in UTC.
-	// +optional
+	// +kubebuilder:validation:Required
 	MaintenanceWindow *MaintenanceWindow `json:"maintenance_window,omitempty"`
 }
 
@@ -89,7 +89,7 @@ type MaintenanceWindow struct {
 	//	*MaintenanceWindow_Anytime
 	//	*MaintenanceWindow_DailyMaintenanceWindow
 	//	*MaintenanceWindow_WeeklyMaintenanceWindow
-	// +optional
+	// +kubebuilder:validation:Required
 	Policy *MaintenanceWindow_Policy `json:"policy"`
 }
 
@@ -173,7 +173,7 @@ type MasterSpec struct {
 	// +kubebuilder:validation:Required
 	MasterType MasterSpec_MasterType `json:"master_type"`
 	// Version of Kubernetes components that runs on the master.
-	// +optional
+	// +kubebuilder:validation:Required
 	Version string `json:"version,omitempty"`
 	// Maintenance policy of the master.
 	// +optional
@@ -262,7 +262,7 @@ type ClusterParameters struct {
 	// +kubebuilder:validation:Required
 	MasterSpec *MasterSpec `json:"master_spec,omitempty"`
 	// IP allocation policy of the Kubernetes cluster.
-	// +optional
+	// +kubebuilder:validation:Required
 	IpAllocationPolicy *IPAllocationPolicy `json:"ip_allocation_policy,omitempty"`
 	// Types that are assignable to InternetGateway:
 	//	*CreateClusterRequest_GatewayIpv4Address
