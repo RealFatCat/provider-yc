@@ -19,11 +19,13 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"reflect"
+	// "reflect"
 
 	k8s_pb "github.com/yandex-cloud/go-genproto/yandex/cloud/k8s/v1"
+	vpc_pb "github.com/yandex-cloud/go-genproto/yandex/cloud/vpc/v1"
 	ycsdk "github.com/yandex-cloud/go-sdk"
 	"github.com/yandex-cloud/go-sdk/gen/kubernetes"
+	"github.com/yandex-cloud/go-sdk/gen/vpc"
 	"github.com/yandex-cloud/go-sdk/iamkey"
 
 	"github.com/pkg/errors"
@@ -42,6 +44,7 @@ import (
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 
 	"github.com/RealFatCat/provider-yc/apis/kubernetes/v1alpha1"
+
 	apisv1alpha1 "github.com/RealFatCat/provider-yc/apis/v1alpha1"
 
 	duration "github.com/golang/protobuf/ptypes/duration"
@@ -50,7 +53,7 @@ import (
 )
 
 const (
-	errNotNetworkType = "managed resource is not a NetworkType custom resource"
+	errNotClusterType = "managed resource is not a ClusterType custom resource"
 	errTrackPCUsage   = "cannot track ProviderConfig usage"
 	errGetPC          = "cannot get ProviderConfig"
 	errGetCreds       = "cannot get credentials"
@@ -61,6 +64,9 @@ const (
 	errDeleteCluster = "cannot delete Cluster"
 	errGetCluster    = "cannot get Cluster"
 	errUpdateCluster = "cannot update Cluster"
+
+	errGetSubnet  = "cannot get subnet"
+	errGetNetwork = "cannot get network"
 )
 
 // Setup adds a controller that reconciles NetworkType managed resources.
@@ -101,7 +107,7 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 	fmt.Println("Connecting")
 	cr, ok := mg.(*v1alpha1.Cluster)
 	if !ok {
-		return nil, errors.New(errNotNetworkType)
+		return nil, errors.New(errNotClusterType)
 	}
 
 	t := resource.NewProviderConfigUsageTracker(c.client, &apisv1alpha1.ProviderConfigUsage{})
@@ -134,20 +140,24 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 		return nil, errors.Wrap(err, "could not create SDK")
 	}
 	cl := sdk.Kubernetes().Cluster()
+	subn := sdk.VPC().Subnet()
+	net := sdk.VPC().Network()
 	fmt.Println("Connecting done")
-	return &external{client: cl}, nil
+	return &external{client: cl, subnet: subn, net: net}, nil
 }
 
 // An ExternalClient observes, then either creates, updates, or deletes an
 // external resource to ensure it reflects the managed resource's desired state.
 type external struct {
 	client *k8s.ClusterServiceClient
+	subnet *vpc.SubnetServiceClient
+	net    *vpc.NetworkServiceClient
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
 	cr, ok := mg.(*v1alpha1.Cluster)
 	if !ok {
-		return managed.ExternalObservation{}, errors.New(errNotNetworkType)
+		return managed.ExternalObservation{}, errors.New(errNotClusterType)
 	}
 
 	// These fmt statements should be removed in the real implementation.
@@ -202,7 +212,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	}, nil
 }
 
-func fillMasterSpecPb(ms *v1alpha1.MasterSpec) (*k8s_pb.MasterSpec, error) {
+func fillMasterSpecPb(ctx context.Context, c *external, ms *v1alpha1.MasterSpec, folderID string) (*k8s_pb.MasterSpec, error) {
 	if ms == nil {
 		return nil, errors.Wrap(fmt.Errorf("master spec is nil"), errCreateCluster)
 	}
@@ -215,11 +225,21 @@ func fillMasterSpecPb(ms *v1alpha1.MasterSpec) (*k8s_pb.MasterSpec, error) {
 	}
 
 	if ms.MasterType.ZonalMasterSpec != nil {
+		// todo: move to function
+		req := &vpc_pb.ListSubnetsRequest{
+			FolderId: folderID,
+			Filter:   fmt.Sprintf("name = '%s'", ms.MasterType.ZonalMasterSpec.InternalV4AddressSpec.SubnetName),
+		}
+		resp, err := c.subnet.List(ctx, req)
+		if err != nil {
+			return nil, errors.Wrap(err, errGetSubnet)
+		}
+
 		pbMasterSpec.MasterType = &k8s_pb.MasterSpec_ZonalMasterSpec{
 			ZonalMasterSpec: &k8s_pb.ZonalMasterSpec{
 				ZoneId: ms.MasterType.ZonalMasterSpec.ZoneId,
 				InternalV4AddressSpec: &k8s_pb.InternalAddressSpec{
-					SubnetId: ms.MasterType.ZonalMasterSpec.InternalV4AddressSpec.SubnetId,
+					SubnetId: resp.Subnets[0].Id,
 				},
 				// k8s_pb.ExternalAddressSpec is empty for now
 				ExternalV4AddressSpec: &k8s_pb.ExternalAddressSpec{},
@@ -228,10 +248,18 @@ func fillMasterSpecPb(ms *v1alpha1.MasterSpec) (*k8s_pb.MasterSpec, error) {
 	} else if ms.MasterType.RegionalMasterSpec != nil {
 		pbLocations := []*k8s_pb.MasterLocation{}
 		for _, location := range ms.MasterType.RegionalMasterSpec.Locations {
+			req := &vpc_pb.ListSubnetsRequest{
+				FolderId: folderID,
+				Filter:   fmt.Sprintf("name = '%s'", location.InternalV4AddressSpec.SubnetName),
+			}
+			resp, err := c.subnet.List(ctx, req)
+			if err != nil {
+				return nil, errors.Wrap(err, errGetSubnet)
+			}
 			pbl := &k8s_pb.MasterLocation{
 				ZoneId: location.ZoneId,
 				InternalV4AddressSpec: &k8s_pb.InternalAddressSpec{
-					SubnetId: location.InternalV4AddressSpec.SubnetId,
+					SubnetId: resp.Subnets[0].Id,
 				},
 			}
 			pbLocations = append(pbLocations, pbl)
@@ -314,23 +342,32 @@ func fillMasterSpecPb(ms *v1alpha1.MasterSpec) (*k8s_pb.MasterSpec, error) {
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
 	cr, ok := mg.(*v1alpha1.Cluster)
 	if !ok {
-		return managed.ExternalCreation{}, errors.New(errNotNetworkType)
+		return managed.ExternalCreation{}, errors.New(errNotClusterType)
 	}
 
 	fmt.Printf("Creating: %+v", cr)
 	cr.Status.SetConditions(xpv1.Creating())
+
+	nreq := &vpc_pb.ListNetworksRequest{
+		FolderId: cr.Spec.ForProvider.FolderID,
+		Filter:   fmt.Sprintf("name = '%s'", cr.Spec.ForProvider.NetworkName),
+	}
+	nrsp, err := c.net.List(ctx, nreq)
+	if err != nil {
+		return managed.ExternalCreation{}, errors.New(errGetNetwork)
+	}
 
 	req := &k8s_pb.CreateClusterRequest{
 		FolderId:             cr.Spec.ForProvider.FolderID,
 		Name:                 cr.Spec.ForProvider.Name,
 		Description:          cr.Spec.ForProvider.Description,
 		Labels:               cr.Spec.ForProvider.Labels,
-		NetworkId:            cr.Spec.ForProvider.NetworkId,
+		NetworkId:            nrsp.Networks[0].Id,
 		ServiceAccountId:     cr.Spec.ForProvider.ServiceAccountId,
 		NodeServiceAccountId: cr.Spec.ForProvider.NodeServiceAccountId,
 	}
-	// Fill MasterSpec
-	pbMasterSpec, err := fillMasterSpecPb(cr.Spec.ForProvider.MasterSpec)
+	// Fill MasterSpec, do better
+	pbMasterSpec, err := fillMasterSpecPb(ctx, c, cr.Spec.ForProvider.MasterSpec, cr.Spec.ForProvider.FolderID)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, errCreateCluster)
 	}
@@ -401,7 +438,7 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.ExternalUpdate, error) {
 	cr, ok := mg.(*v1alpha1.Cluster)
 	if !ok {
-		return managed.ExternalUpdate{}, errors.New(errNotNetworkType)
+		return managed.ExternalUpdate{}, errors.New(errNotClusterType)
 	}
 	fmt.Println(cr)
 	/*
@@ -442,7 +479,7 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 	cr, ok := mg.(*v1alpha1.Cluster)
 	if !ok {
-		return errors.New(errNotNetworkType)
+		return errors.New(errNotClusterType)
 	}
 
 	mg.SetConditions(xpv1.Deleting())

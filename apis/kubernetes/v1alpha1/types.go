@@ -25,7 +25,7 @@ import (
 type InternalAddressSpec struct {
 	// ID of the subnet. If no ID is specified, and there only one subnet in specified zone, an address in this subnet will be allocated.
 	// +optional
-	SubnetId string `json:"subnet_id,omitempty"`
+	SubnetName string `json:"subnet_name,omitempty"`
 }
 
 type ExternalAddressSpec struct{}
@@ -255,9 +255,9 @@ type ClusterParameters struct {
 	// To get a list of available zones, use the [yandex.cloud.compute.v1.ZoneService.List] request
 	// +kubebuilder:validation:Required
 	ZoneID string `json:"zone_id,omitempty"`
-	// ID of the network.
+	// Name of the network.
 	// +kubebuilder:validation:Required
-	NetworkId string `json:"network_id,omitempty"`
+	NetworkName string `json:"network_name,omitempty"`
 	// IP allocation policy of the Kubernetes cluster.
 	// +kubebuilder:validation:Required
 	MasterSpec *MasterSpec `json:"master_spec,omitempty"`

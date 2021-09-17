@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	computev1alpha1 "github.com/RealFatCat/provider-yc/apis/compute/v1alpha1"
+	kubernetesv1alpha1 "github.com/RealFatCat/provider-yc/apis/kubernetes/v1alpha1"
 	networkv1alpha1 "github.com/RealFatCat/provider-yc/apis/network/v1alpha1"
 	templatev1alpha1 "github.com/RealFatCat/provider-yc/apis/v1alpha1"
 )
@@ -28,6 +29,7 @@ import (
 func init() {
 	// Register the types with the Scheme so the components can map objects to GroupVersionKinds and back
 	AddToSchemes = append(AddToSchemes,
+		kubernetesv1alpha1.SchemeBuilder.AddToScheme,
 		networkv1alpha1.SchemeBuilder.AddToScheme,
 		computev1alpha1.SchemeBuilder.AddToScheme,
 		templatev1alpha1.SchemeBuilder.AddToScheme,
