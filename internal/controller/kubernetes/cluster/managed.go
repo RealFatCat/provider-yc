@@ -202,50 +202,32 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	}, nil
 }
 
-func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
-	cr, ok := mg.(*v1alpha1.Cluster)
-	if !ok {
-		return managed.ExternalCreation{}, errors.New(errNotNetworkType)
+func fillMasterSpecPb(ms *v1alpha1.MasterSpec) (*k8s_pb.MasterSpec, error) {
+	if ms == nil {
+		return nil, errors.Wrap(fmt.Errorf("master spec is nil"), errCreateCluster)
 	}
-
-	fmt.Printf("Creating: %+v", cr)
-	cr.Status.SetConditions(xpv1.Creating())
-
-	req := &k8s_pb.CreateClusterRequest{
-		FolderId:             cr.Spec.ForProvider.FolderID,
-		Name:                 cr.Spec.ForProvider.Name,
-		Description:          cr.Spec.ForProvider.Description,
-		Labels:               cr.Spec.ForProvider.Labels,
-		NetworkId:            cr.Spec.ForProvider.NetworkId,
-		ServiceAccountId:     cr.Spec.ForProvider.ServiceAccountId,
-		NodeServiceAccountId: cr.Spec.ForProvider.NodeServiceAccountId,
-	}
-	// Fill MasterSpec
 	pbMasterSpec := &k8s_pb.MasterSpec{}
-	pbMasterSpec.Version = cr.Spec.ForProvider.MasterSpec.Version
-	pbMasterSpec.SecurityGroupIds = cr.Spec.ForProvider.MasterSpec.SecurityGroupIds
+	pbMasterSpec.Version = ms.Version
+	pbMasterSpec.SecurityGroupIds = ms.SecurityGroupIds
 
-	if cr.Spec.ForProvider.MasterSpec == nil {
-		return managed.ExternalCreation{}, errors.Wrap(fmt.Errorf("master spec is nil"), errCreateCluster)
-	}
-	if cr.Spec.ForProvider.MasterSpec.MasterType.ZonalMasterSpec != nil && cr.Spec.ForProvider.MasterSpec.MasterType.RegionalMasterSpec != nil {
-		return managed.ExternalCreation{}, errors.Wrap(fmt.Errorf("zonal_master_spec or regional_master_spec should be present, got both"), errCreateCluster)
+	if ms.MasterType.ZonalMasterSpec != nil && ms.MasterType.RegionalMasterSpec != nil {
+		return nil, errors.Wrap(fmt.Errorf("zonal_master_spec or regional_master_spec should be present, got both"), errCreateCluster)
 	}
 
-	if cr.Spec.ForProvider.MasterSpec.MasterType.ZonalMasterSpec != nil {
+	if ms.MasterType.ZonalMasterSpec != nil {
 		pbMasterSpec.MasterType = &k8s_pb.MasterSpec_ZonalMasterSpec{
 			ZonalMasterSpec: &k8s_pb.ZonalMasterSpec{
-				ZoneId: cr.Spec.ForProvider.MasterSpec.MasterType.ZonalMasterSpec.ZoneId,
+				ZoneId: ms.MasterType.ZonalMasterSpec.ZoneId,
 				InternalV4AddressSpec: &k8s_pb.InternalAddressSpec{
-					SubnetId: cr.Spec.ForProvider.MasterSpec.MasterType.ZonalMasterSpec.InternalV4AddressSpec.SubnetId,
+					SubnetId: ms.MasterType.ZonalMasterSpec.InternalV4AddressSpec.SubnetId,
 				},
 				// k8s_pb.ExternalAddressSpec is empty for now
 				ExternalV4AddressSpec: &k8s_pb.ExternalAddressSpec{},
 			},
 		}
-	} else if cr.Spec.ForProvider.MasterSpec.MasterType.RegionalMasterSpec != nil {
+	} else if ms.MasterType.RegionalMasterSpec != nil {
 		pbLocations := []*k8s_pb.MasterLocation{}
-		for _, location := range cr.Spec.ForProvider.MasterSpec.MasterType.RegionalMasterSpec.Locations {
+		for _, location := range ms.MasterType.RegionalMasterSpec.Locations {
 			pbl := &k8s_pb.MasterLocation{
 				ZoneId: location.ZoneId,
 				InternalV4AddressSpec: &k8s_pb.InternalAddressSpec{
@@ -256,42 +238,42 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		}
 		pbMasterSpec.MasterType = &k8s_pb.MasterSpec_RegionalMasterSpec{
 			RegionalMasterSpec: &k8s_pb.RegionalMasterSpec{
-				RegionId:  cr.Spec.ForProvider.MasterSpec.MasterType.RegionalMasterSpec.RegionId,
+				RegionId:  ms.MasterType.RegionalMasterSpec.RegionId,
 				Locations: pbLocations,
 				// k8s_pb.ExternalAddressSpec is empty for now
 				ExternalV4AddressSpec: &k8s_pb.ExternalAddressSpec{},
 			},
 		}
 	} else {
-		return managed.ExternalCreation{}, errors.Wrap(fmt.Errorf("zonal_master_spec or regional_master_spec should be present, got none"), errCreateCluster)
+		return nil, errors.Wrap(fmt.Errorf("zonal_master_spec or regional_master_spec should be present, got none"), errCreateCluster)
 	}
 
-	// Maintenance_Policy
-	if cr.Spec.ForProvider.MasterSpec.MaintenancePolicy != nil {
+	// Maintenance_Policy, probably should be another function
+	if ms.MaintenancePolicy != nil {
 		pbMasterSpec.MaintenancePolicy = &k8s_pb.MasterMaintenancePolicy{
-			AutoUpgrade: cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.AutoUpgrade,
+			AutoUpgrade: ms.MaintenancePolicy.AutoUpgrade,
 		}
 		pbMaintenanceWindow := &k8s_pb.MaintenanceWindow{}
-		if cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.Anytime != nil {
+		if ms.MaintenancePolicy.MaintenanceWindow.Policy.Anytime != nil {
 			pbMaintenanceWindow.Policy = &k8s_pb.MaintenanceWindow_Anytime{}
-		} else if cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow != nil {
+		} else if ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow != nil {
 			pbMaintenanceWindow.Policy = &k8s_pb.MaintenanceWindow_DailyMaintenanceWindow{
 				DailyMaintenanceWindow: &k8s_pb.DailyMaintenanceWindow{
 					StartTime: &timeofday.TimeOfDay{
-						Hours:   cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Hours,
-						Minutes: cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Minutes,
-						Seconds: cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Seconds,
-						Nanos:   cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Nanos,
+						Hours:   ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Hours,
+						Minutes: ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Minutes,
+						Seconds: ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Seconds,
+						Nanos:   ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Nanos,
 					},
 					Duration: &duration.Duration{
-						Seconds: cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.Duration.Seconds,
-						Nanos:   cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.Duration.Nanos,
+						Seconds: ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.Duration.Seconds,
+						Nanos:   ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.Duration.Nanos,
 					},
 				},
 			}
-		} else if cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.WeeklyMaintenanceWindow != nil {
+		} else if ms.MaintenancePolicy.MaintenanceWindow.Policy.WeeklyMaintenanceWindow != nil {
 			pbDaysOfWeek := []*k8s_pb.DaysOfWeekMaintenanceWindow{}
-			for _, days := range cr.Spec.ForProvider.MasterSpec.MaintenancePolicy.MaintenanceWindow.Policy.WeeklyMaintenanceWindow.DaysOfWeek {
+			for _, days := range ms.MaintenancePolicy.MaintenanceWindow.Policy.WeeklyMaintenanceWindow.DaysOfWeek {
 				pbDays := []dayofweek.DayOfWeek{}
 				var pbd dayofweek.DayOfWeek
 				for _, d := range days.Days {
@@ -325,6 +307,32 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 			}
 		}
 		pbMasterSpec.MaintenancePolicy.MaintenanceWindow = pbMaintenanceWindow
+	}
+	return pbMasterSpec, nil
+}
+
+func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
+	cr, ok := mg.(*v1alpha1.Cluster)
+	if !ok {
+		return managed.ExternalCreation{}, errors.New(errNotNetworkType)
+	}
+
+	fmt.Printf("Creating: %+v", cr)
+	cr.Status.SetConditions(xpv1.Creating())
+
+	req := &k8s_pb.CreateClusterRequest{
+		FolderId:             cr.Spec.ForProvider.FolderID,
+		Name:                 cr.Spec.ForProvider.Name,
+		Description:          cr.Spec.ForProvider.Description,
+		Labels:               cr.Spec.ForProvider.Labels,
+		NetworkId:            cr.Spec.ForProvider.NetworkId,
+		ServiceAccountId:     cr.Spec.ForProvider.ServiceAccountId,
+		NodeServiceAccountId: cr.Spec.ForProvider.NodeServiceAccountId,
+	}
+	// Fill MasterSpec
+	pbMasterSpec, err := fillMasterSpecPb(cr.Spec.ForProvider.MasterSpec)
+	if err != nil {
+		return managed.ExternalCreation{}, errors.Wrap(err, errCreateCluster)
 	}
 	req.MasterSpec = pbMasterSpec
 
@@ -395,31 +403,34 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	if !ok {
 		return managed.ExternalUpdate{}, errors.New(errNotNetworkType)
 	}
-	req := &k8s_pb.GetClusterRequest{ClusterId: cr.Status.AtProvider.ID}
-	resp, err := c.client.Get(ctx, req)
-	if err != nil {
-		return managed.ExternalUpdate{}, errors.Wrap(err, errGetCluster)
-	}
-	ureq := &k8s_pb.UpdateClusterRequest{
-		ClusterId:   resp.Id,
-		Name:        cr.Spec.ForProvider.Name,
-		Description: cr.Spec.ForProvider.Description,
-		Labels:      cr.Spec.ForProvider.Labels,
-		// No UpdateMask support for now. It seems useless, when we use yaml files to "rule them all".
-	}
-	// TODO Do better
-	if cr.Status.AtProvider.Name != cr.Spec.ForProvider.Name ||
-		!reflect.DeepEqual(cr.Status.AtProvider.Labels, cr.Spec.ForProvider.Labels) ||
-		cr.Status.AtProvider.Description != cr.Spec.ForProvider.Description {
-		_, err = c.client.Update(ctx, ureq)
+	fmt.Println(cr)
+	/*
+		req := &k8s_pb.GetClusterRequest{ClusterId: cr.Status.AtProvider.ID}
+		resp, err := c.client.Get(ctx, req)
 		if err != nil {
-			return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateCluster)
+			return managed.ExternalUpdate{}, errors.Wrap(err, errGetCluster)
 		}
-	}
+		ureq := &k8s_pb.UpdateClusterRequest{
+			ClusterId:   resp.Id,
+			Name:        cr.Spec.ForProvider.Name,
+			Description: cr.Spec.ForProvider.Description,
+			Labels:      cr.Spec.ForProvider.Labels,
+			// No UpdateMask support for now. It seems useless, when we use yaml files to "rule them all".
+		}
+		// TODO Do better
+		if cr.Status.AtProvider.Name != cr.Spec.ForProvider.Name ||
+			!reflect.DeepEqual(cr.Status.AtProvider.Labels, cr.Spec.ForProvider.Labels) ||
+			cr.Status.AtProvider.Description != cr.Spec.ForProvider.Description {
+			_, err = c.client.Update(ctx, ureq)
+			if err != nil {
+				return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateCluster)
+			}
+		}
 
-	cr.Status.AtProvider.Name = cr.Spec.ForProvider.Name
-	cr.Status.AtProvider.Labels = cr.Spec.ForProvider.Labels
-	cr.Status.AtProvider.Description = cr.Spec.ForProvider.Description
+		cr.Status.AtProvider.Name = cr.Spec.ForProvider.Name
+		cr.Status.AtProvider.Labels = cr.Spec.ForProvider.Labels
+		cr.Status.AtProvider.Description = cr.Spec.ForProvider.Description
+	*/
 
 	return managed.ExternalUpdate{
 		// Optionally return any details that may be required to connect to the
