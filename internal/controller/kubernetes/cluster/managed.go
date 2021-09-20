@@ -21,9 +21,11 @@ import (
 	"fmt"
 	// "reflect"
 
+	acc_pb "github.com/yandex-cloud/go-genproto/yandex/cloud/iam/v1"
 	k8s_pb "github.com/yandex-cloud/go-genproto/yandex/cloud/k8s/v1"
 	vpc_pb "github.com/yandex-cloud/go-genproto/yandex/cloud/vpc/v1"
 	ycsdk "github.com/yandex-cloud/go-sdk"
+	"github.com/yandex-cloud/go-sdk/gen/iam"
 	"github.com/yandex-cloud/go-sdk/gen/kubernetes"
 	"github.com/yandex-cloud/go-sdk/gen/vpc"
 	"github.com/yandex-cloud/go-sdk/iamkey"
@@ -50,6 +52,8 @@ import (
 	duration "github.com/golang/protobuf/ptypes/duration"
 	dayofweek "google.golang.org/genproto/googleapis/type/dayofweek"
 	timeofday "google.golang.org/genproto/googleapis/type/timeofday"
+
+	"github.com/yandex-cloud/go-sdk/sdkresolvers"
 )
 
 const (
@@ -65,8 +69,10 @@ const (
 	errGetCluster    = "cannot get Cluster"
 	errUpdateCluster = "cannot update Cluster"
 
-	errGetSubnet  = "cannot get subnet"
-	errGetNetwork = "cannot get network"
+	errGetSubnet         = "cannot get subnet"
+	errGetNetwork        = "cannot get network"
+	errGetServiceAcc     = "cannot get service account id"
+	errGetNodeServiceAcc = "cannot get node service account id"
 )
 
 // Setup adds a controller that reconciles NetworkType managed resources.
@@ -142,8 +148,9 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 	cl := sdk.Kubernetes().Cluster()
 	subn := sdk.VPC().Subnet()
 	net := sdk.VPC().Network()
+	accs := sdk.IAM().ServiceAccount()
 	fmt.Println("Connecting done")
-	return &external{client: cl, subnet: subn, net: net}, nil
+	return &external{client: cl, subnet: subn, net: net, accs: accs}, nil
 }
 
 // An ExternalClient observes, then either creates, updates, or deletes an
@@ -152,6 +159,7 @@ type external struct {
 	client *k8s.ClusterServiceClient
 	subnet *vpc.SubnetServiceClient
 	net    *vpc.NetworkServiceClient
+	accs   *iam.ServiceAccountServiceClient
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
@@ -162,7 +170,10 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 
 	// These fmt statements should be removed in the real implementation.
 	fmt.Printf("Observing: %+v", cr)
-	req := &k8s_pb.ListClustersRequest{FolderId: cr.Spec.ForProvider.FolderID, Filter: fmt.Sprintf("name = '%s'", cr.Spec.ForProvider.Name)}
+	req := &k8s_pb.ListClustersRequest{
+		FolderId: cr.Spec.ForProvider.FolderID,
+		Filter:   sdkresolvers.CreateResolverFilter("name", cr.Spec.ForProvider.Name),
+	}
 	resp, err := c.client.List(ctx, req)
 	if err != nil {
 		return managed.ExternalObservation{}, errors.Wrap(err, errGetCluster)
@@ -185,13 +196,13 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		}, nil
 	}
 
-	net := resp.Clusters[0]
-	cr.Status.AtProvider.CreatedAt = net.CreatedAt.String()
-	cr.Status.AtProvider.ID = net.Id
-	cr.Status.AtProvider.FolderID = net.FolderId
-	cr.Status.AtProvider.Name = net.Name
-	cr.Status.AtProvider.Labels = net.Labels
-	cr.Status.AtProvider.Description = net.Description
+	cluster := resp.Clusters[0]
+	cr.Status.AtProvider.CreatedAt = cluster.CreatedAt.String()
+	cr.Status.AtProvider.ID = cluster.Id
+	cr.Status.AtProvider.FolderID = cluster.FolderId
+	cr.Status.AtProvider.Name = cluster.Name
+	cr.Status.AtProvider.Labels = cluster.Labels
+	cr.Status.AtProvider.Description = cluster.Description
 
 	cr.SetConditions(xpv1.Available())
 
@@ -345,7 +356,8 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalCreation{}, errors.New(errNotClusterType)
 	}
 
-	fmt.Printf("Creating: %+v", cr)
+	fmt.Printf("\n\nCreating: %+v\n\n", cr)
+
 	cr.Status.SetConditions(xpv1.Creating())
 
 	nreq := &vpc_pb.ListNetworksRequest{
@@ -357,14 +369,37 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalCreation{}, errors.New(errGetNetwork)
 	}
 
+	serviceAccReq := &acc_pb.ListServiceAccountsRequest{
+		FolderId: cr.Spec.ForProvider.FolderID,
+		// Filter:   sdkresolvers.CreateResolverFilter("name", cr.Spec.ForProvider.ServiceAccountName),
+		Filter: fmt.Sprintf("name='%s'", cr.Spec.ForProvider.ServiceAccountName),
+	}
+	serviceAccResp, err := c.accs.List(ctx, serviceAccReq)
+	if err != nil {
+		return managed.ExternalCreation{}, errors.New(errGetServiceAcc)
+	}
+
+	fmt.Printf("\n serviceAccResp: %s\n", serviceAccResp)
+
+	nodeAccReq := &acc_pb.ListServiceAccountsRequest{
+		FolderId: cr.Spec.ForProvider.FolderID,
+		// Filter:   sdkresolvers.CreateResolverFilter("name", cr.Spec.ForProvider.NodeServiceAccountName),
+		Filter: fmt.Sprintf("name='%s'", cr.Spec.ForProvider.ServiceAccountName),
+	}
+	nodeAccResp, err := c.accs.List(ctx, nodeAccReq)
+	if err != nil {
+		return managed.ExternalCreation{}, errors.New(errGetNodeServiceAcc)
+	}
+	fmt.Printf("\n nodeAccResp: %s\n", nodeAccResp)
+
 	req := &k8s_pb.CreateClusterRequest{
 		FolderId:             cr.Spec.ForProvider.FolderID,
 		Name:                 cr.Spec.ForProvider.Name,
 		Description:          cr.Spec.ForProvider.Description,
 		Labels:               cr.Spec.ForProvider.Labels,
 		NetworkId:            nrsp.Networks[0].Id,
-		ServiceAccountId:     cr.Spec.ForProvider.ServiceAccountId,
-		NodeServiceAccountId: cr.Spec.ForProvider.NodeServiceAccountId,
+		ServiceAccountId:     serviceAccResp.ServiceAccounts[0].Id,
+		NodeServiceAccountId: nodeAccResp.ServiceAccounts[0].Id,
 	}
 	// Fill MasterSpec, do better
 	pbMasterSpec, err := fillMasterSpecPb(ctx, c, cr.Spec.ForProvider.MasterSpec, cr.Spec.ForProvider.FolderID)
@@ -374,12 +409,13 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	req.MasterSpec = pbMasterSpec
 
 	// IpAllocationPolicy
-	req.IpAllocationPolicy = &k8s_pb.IPAllocationPolicy{
-		ClusterIpv4CidrBlock: cr.Spec.ForProvider.IpAllocationPolicy.ClusterIpv4CidrBlock,
-		NodeIpv4CidrMaskSize: cr.Spec.ForProvider.IpAllocationPolicy.NodeIpv4CidrMaskSize,
-		ServiceIpv4CidrBlock: cr.Spec.ForProvider.IpAllocationPolicy.ServiceIpv4CidrBlock,
-		ClusterIpv6CidrBlock: cr.Spec.ForProvider.IpAllocationPolicy.ClusterIpv6CidrBlock,
-		ServiceIpv6CidrBlock: cr.Spec.ForProvider.IpAllocationPolicy.ServiceIpv6CidrBlock,
+	req.IpAllocationPolicy = &k8s_pb.IPAllocationPolicy{}
+	if cr.Spec.ForProvider.IpAllocationPolicy != nil {
+		req.IpAllocationPolicy.ClusterIpv4CidrBlock = cr.Spec.ForProvider.IpAllocationPolicy.ClusterIpv4CidrBlock
+		req.IpAllocationPolicy.NodeIpv4CidrMaskSize = cr.Spec.ForProvider.IpAllocationPolicy.NodeIpv4CidrMaskSize
+		req.IpAllocationPolicy.ServiceIpv4CidrBlock = cr.Spec.ForProvider.IpAllocationPolicy.ServiceIpv4CidrBlock
+		req.IpAllocationPolicy.ClusterIpv6CidrBlock = cr.Spec.ForProvider.IpAllocationPolicy.ClusterIpv6CidrBlock
+		req.IpAllocationPolicy.ServiceIpv6CidrBlock = cr.Spec.ForProvider.IpAllocationPolicy.ServiceIpv6CidrBlock
 	}
 
 	// internet gateway
@@ -424,6 +460,8 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	}
 
 	// End of all fills
+	fmt.Printf("\n\n REQUEST: %s\n\n", req)
+
 	if _, err := c.client.Create(ctx, req); err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, errCreateCluster)
 	}

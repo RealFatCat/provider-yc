@@ -11,25 +11,22 @@ spec:
     master_spec:
       master_type:
         zonal_master_spec:
-          zone_id: ru-cnetral1-a
+          zone_id: ru-central1-a
           internal_v4_address_spec:
             subnet_name: subnet-from-kuber
-      version: 1.20
+      version: "1.20"
       maintenance_policy:
         auto_upgrade: true
         maintenance_window:
           policy:
-            dayli_maintenance_window:
+            daily_maintenance_window:
               start_time:
                 hours: 02
                 minutes: 30
               duration:
-                seconds: 600
-    ip_allocation_policy:
-      cluster_ipv4_cidr_block: 192.168.1.0/24
-      service_ipv4_cidr_block: 192.168.2.0/24
-    service_account_id: k8s-sa
-    node_service_account_id: k8s-sa
+                seconds: 3600
+    service_account_name: k8s-sa
+    node_service_account_name: k8s-sa
     release_channel: stable
     description: "k8s cluster from kuber"
   providerConfigRef:

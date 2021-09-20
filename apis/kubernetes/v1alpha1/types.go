@@ -138,6 +138,8 @@ type Duration struct {
 	// to +315,576,000,000 inclusive. Note: these bounds are computed from:
 	// 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years
 	// +optional
+	// +kubebuilder:validation:Minimum:=3600
+	// +kubebuilder:validation:Maximum:=86400
 	Seconds int64 `json:"seconds,omitempty"`
 	// Signed fractions of a second at nanosecond resolution of the span
 	// of time. Durations less than one second are represented with a 0
@@ -188,17 +190,17 @@ type IPAllocationPolicy struct {
 	//
 	// It should not overlap with any subnet in the network the Kubernetes cluster located in. Static routes will be
 	// set up for this CIDR blocks in node subnets.
-	// +optional
+	// +kubebuilder:validation:Required
 	ClusterIpv4CidrBlock string `json:"cluster_ipv4_cidr_block,omitempty"`
 	// Size of the masks that are assigned for each node in the cluster.
 	//
 	// If not specified, 24 is used.
-	// +optional
+	// +kubebuilder:validation:Required
 	NodeIpv4CidrMaskSize int64 `json:"node_ipv4_cidr_mask_size,omitempty"`
 	// CIDR block. IP range Kubernetes service Kubernetes cluster IP addresses will be allocated from.
 	//
 	// It should not overlap with any subnet in the network the Kubernetes cluster located in.
-	// +optional
+	// +kubebuilder:validation:Required
 	ServiceIpv4CidrBlock string `json:"service_ipv4_cidr_block,omitempty"`
 	// IPv6 range for allocating pod IP addresses.
 	// +optional
@@ -273,10 +275,10 @@ type ClusterParameters struct {
 	// Selected service account should have `edit` role on the folder where the Kubernetes cluster will be
 	// located and on the folder where selected network resides.
 	// +kubebuilder:validation:Required
-	ServiceAccountId string `json:"service_account_id,omitempty"`
+	ServiceAccountName string `json:"service_account_name,omitempty"`
 	// Service account to be used by the worker nodes of the Kubernetes cluster to access Container Registry or to push node logs and metrics.
 	// +kubebuilder:validation:Required
-	NodeServiceAccountId string `json:"node_service_account_id,omitempty"`
+	NodeServiceAccountName string `json:"node_service_account_name,omitempty"`
 	// Release channel for the master.
 	// +kubebuilder:validation:Required
 	ReleaseChannel string `json:"release_channel,omitempty"`

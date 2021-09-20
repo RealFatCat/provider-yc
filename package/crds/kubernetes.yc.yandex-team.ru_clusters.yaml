@@ -129,6 +129,8 @@ spec:
                                           seconds:
                                             description: 'Signed seconds of the span of time. Must be from -315,576,000,000 to +315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years'
                                             format: int64
+                                            maximum: 86400
+                                            minimum: 3600
                                             type: integer
                                         type: object
                                       start_time:
@@ -174,6 +176,8 @@ spec:
                                                 seconds:
                                                   description: 'Signed seconds of the span of time. Must be from -315,576,000,000 to +315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years'
                                                   format: int64
+                                                  maximum: 86400
+                                                  minimum: 3600
                                                   type: integer
                                               type: object
                                             start_time:
@@ -280,13 +284,13 @@ spec:
                       provider:
                         type: string
                     type: object
-                  node_service_account_id:
+                  node_service_account_name:
                     description: Service account to be used by the worker nodes of the Kubernetes cluster to access Container Registry or to push node logs and metrics.
                     type: string
                   release_channel:
                     description: Release channel for the master.
                     type: string
-                  service_account_id:
+                  service_account_name:
                     description: Service account to be used for provisioning Compute Cloud and VPC resources for Kubernetes cluster. Selected service account should have `edit` role on the folder where the Kubernetes cluster will be located and on the folder where selected network resides.
                     type: string
                   zone_id:
