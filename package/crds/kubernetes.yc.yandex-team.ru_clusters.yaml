@@ -25,6 +25,9 @@ spec:
     - jsonPath: .status.atProvider.status
       name: STATUS
       type: string
+    - jsonPath: .status.atProvider.health
+      name: HEALTH
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
@@ -348,11 +351,15 @@ spec:
                     type: string
                   folder_id:
                     type: string
+                  health:
+                    type: string
                   labels:
                     additionalProperties:
                       type: string
                     type: object
                   name:
+                    type: string
+                  status:
                     type: string
                 required:
                 - ID

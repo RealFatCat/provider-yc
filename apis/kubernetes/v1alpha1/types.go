@@ -264,7 +264,7 @@ type ClusterParameters struct {
 	// +kubebuilder:validation:Required
 	MasterSpec *MasterSpec `json:"master_spec,omitempty"`
 	// IP allocation policy of the Kubernetes cluster.
-	// +kubebuilder:validation:Required
+	// +optional
 	IpAllocationPolicy *IPAllocationPolicy `json:"ip_allocation_policy,omitempty"`
 	// Types that are assignable to InternetGateway:
 	//	*CreateClusterRequest_GatewayIpv4Address
@@ -302,6 +302,8 @@ type ClusterObservation struct {
 	Name        string            `json:"name"`
 	Labels      map[string]string `json:"labels,omitempty"`
 	Description string            `json:"description,omitempty"`
+	Status      string            `json:"status,omitempty"`
+	Health      string            `json:"health,omitempty"`
 }
 
 // An ClusterSpec defines the desired state of a Cluster.
@@ -322,6 +324,7 @@ type ClusterStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="YC_NAME",type="string",JSONPath=".status.atProvider.name"
 // +kubebuilder:printcolumn:name="STATUS",type="string",JSONPath=".status.atProvider.status"
+// +kubebuilder:printcolumn:name="HEALTH",type="string",JSONPath=".status.atProvider.health"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:scope=Cluster,categories={crossplane,managed,yc}
 type Cluster struct {

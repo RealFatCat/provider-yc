@@ -19,6 +19,7 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"strings"
 	// "reflect"
 
 	acc_pb "github.com/yandex-cloud/go-genproto/yandex/cloud/iam/v1"
@@ -203,6 +204,8 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	cr.Status.AtProvider.Name = cluster.Name
 	cr.Status.AtProvider.Labels = cluster.Labels
 	cr.Status.AtProvider.Description = cluster.Description
+	cr.Status.AtProvider.Status = cluster.Status.String()
+	cr.Status.AtProvider.Health = cluster.Health.String()
 
 	cr.SetConditions(xpv1.Available())
 
@@ -400,6 +403,12 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		NetworkId:            nrsp.Networks[0].Id,
 		ServiceAccountId:     serviceAccResp.ServiceAccounts[0].Id,
 		NodeServiceAccountId: nodeAccResp.ServiceAccounts[0].Id,
+	}
+	// release channel
+	if r, ok := k8s_pb.ReleaseChannel_value[strings.ToUpper(cr.Spec.ForProvider.ReleaseChannel)]; ok {
+		req.ReleaseChannel = k8s_pb.ReleaseChannel(r)
+	} else {
+		req.ReleaseChannel = k8s_pb.ReleaseChannel_RELEASE_CHANNEL_UNSPECIFIED
 	}
 	// Fill MasterSpec, do better
 	pbMasterSpec, err := fillMasterSpecPb(ctx, c, cr.Spec.ForProvider.MasterSpec, cr.Spec.ForProvider.FolderID)
