@@ -71,6 +71,50 @@ type MasterSpec_MasterType struct {
 	RegionalMasterSpec *RegionalMasterSpec `json:"regional_master_spec"`
 }
 
+type ZonalMaster struct {
+	// ID of the availability zone where the master resides.
+	ZoneId string `json:"zone_id,omitempty"`
+	// IPv4 internal network address that is assigned to the master.
+	InternalV4Address string `json:"internal_v4_address,omitempty"`
+	// IPv4 external network address that is assigned to the master.
+	ExternalV4Address string `json:"external_v4_address,omitempty"`
+}
+
+type RegionalMaster struct {
+	// ID of the region where the master resides.
+	RegionId string `json:"region_id,omitempty"`
+	// IPv4 internal network address that is assigned to the master.
+	InternalV4Address string `json:"internal_v4_address,omitempty"`
+	// IPv4 external network address that is assigned to the master.
+	ExternalV4Address string `json:"external_v4_address,omitempty"`
+}
+
+type Master_MasterType struct {
+	// Parameters of the availability zone for the master.
+	ZonalMaster    *ZonalMaster    `json:"zonal_master,omitempty"`
+	RegionalMaster *RegionalMaster `json:"regional_master,omitempty"`
+}
+
+type Master struct {
+	MasterType *Master_MasterType `json:"master_type"`
+	// Version of Kubernetes components that runs on the master.
+	Version string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	// Endpoints of the master. Endpoints constitute of scheme and port (i.e. `https://ip-address:port`)
+	//and can be used by the clients to communicate with the Kubernetes API of the Kubernetes cluster.
+	// TODO: if needed
+	// Endpoints *MasterEndpoints `protobuf:"bytes,3,opt,name=endpoints,proto3" json:"endpoints,omitempty"`
+	// Master authentication parameters are used to establish trust between the master and a client.
+	// TODO: if needed
+	// MasterAuth *MasterAuth `protobuf:"bytes,4,opt,name=master_auth,json=masterAuth,proto3" json:"master_auth,omitempty"`
+	// Detailed information about the Kubernetes version that is running on the master.
+	// TODO: if needed
+	// VersionInfo *VersionInfo `protobuf:"bytes,5,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
+	// Maintenance policy of the master.
+	MaintenancePolicy *MasterMaintenancePolicy `protobuf:"bytes,6,opt,name=maintenance_policy,json=maintenancePolicy,proto3" json:"maintenance_policy,omitempty"`
+	// Master security groups.
+	SecurityGroupIds []string `protobuf:"bytes,8,rep,name=security_group_ids,json=securityGroupIds,proto3" json:"security_group_ids,omitempty"`
+}
+
 type MasterMaintenancePolicy struct {
 	// If set to true, automatic updates are installed in the specified period of time with no interaction from the user.
 	// If set to false, automatic upgrades are disabled.
@@ -173,7 +217,7 @@ type MasterSpec struct {
 	//	*MasterSpec_ZonalMasterSpec
 	//	*MasterSpec_RegionalMasterSpec
 	// +kubebuilder:validation:Required
-	MasterType MasterSpec_MasterType `json:"master_type"`
+	MasterType *MasterSpec_MasterType `json:"master_type"`
 	// Version of Kubernetes components that runs on the master.
 	// +kubebuilder:validation:Required
 	Version string `json:"version,omitempty"`
@@ -294,16 +338,46 @@ type ClusterParameters struct {
 	NetworkImplementation *Cluster_Cilium `json:"network_implementation,omitempty"`
 }
 
+type MasterUpdateSpec struct {
+	// Specification of the master update.
+	Version *UpdateVersionSpec `json:"version,omitempty"`
+	// Maintenance policy of the master.
+	MaintenancePolicy *MasterMaintenancePolicy `json:"maintenance_policy,omitempty"`
+	// Master security groups.
+	SecurityGroupIds []string `json:"security_group_ids,omitempty"`
+}
+
+type UpdateVersionSpec struct {
+	// Types that are assignable to Specifier:
+	//	*UpdateVersionSpec_Version
+	//	*UpdateVersionSpec_LatestRevision
+	Specifier *Specifier `json:"specifier"`
+}
+
+type Specifier struct {
+	// Request update to a newer version of Kubernetes (1.x -> 1.y).
+	// +optional
+	Version string `json:"version"`
+	// Request update to the latest revision for the current version.
+	// +optional
+	LatestRevision bool `json:"latest_revision"`
+}
+
 // ClusterObservation are the observable fields of a Cluster.
 type ClusterObservation struct {
-	ID          string            `json:"ID"`
-	FolderID    string            `json:"folder_id"`
-	CreatedAt   string            `json:"created_at"`
-	Name        string            `json:"name"`
-	Labels      map[string]string `json:"labels,omitempty"`
-	Description string            `json:"description,omitempty"`
-	Status      string            `json:"status,omitempty"`
-	Health      string            `json:"health,omitempty"`
+	ID                   string                      `json:"ID"`
+	FolderID             string                      `json:"folder_id"`
+	CreatedAt            string                      `json:"created_at"`
+	Name                 string                      `json:"name"`
+	Labels               map[string]string           `json:"labels,omitempty"`
+	Description          string                      `json:"description,omitempty"`
+	Status               string                      `json:"status,omitempty"`
+	Health               string                      `json:"health,omitempty"`
+	ServiceAccountId     string                      `json:"service_account_id,omitempty"`
+	NodeServiceAccountId string                      `json:"node_service_account_id,omitempty"`
+	InternetGateway      *Cluster_GatewayIpv4Address `json:"internet_gateway,omitempty"`
+	NetworkPolicy        *NetworkPolicy              `json:"network_policy,omitempty"`
+	Master               *Master                     `json:"master,omitempty"`
 }
 
 // An ClusterSpec defines the desired state of a Cluster.

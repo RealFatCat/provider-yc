@@ -19,8 +19,8 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
-	// "reflect"
 
 	acc_pb "github.com/yandex-cloud/go-genproto/yandex/cloud/iam/v1"
 	k8s_pb "github.com/yandex-cloud/go-genproto/yandex/cloud/k8s/v1"
@@ -55,6 +55,8 @@ import (
 	timeofday "google.golang.org/genproto/googleapis/type/timeofday"
 
 	"github.com/yandex-cloud/go-sdk/sdkresolvers"
+
+	"google.golang.org/genproto/protobuf/field_mask"
 )
 
 const (
@@ -198,6 +200,92 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	}
 
 	cluster := resp.Clusters[0]
+
+	igw := &v1alpha1.Cluster_GatewayIpv4Address{GatewayIpv4Address: cluster.GetGatewayIpv4Address()}
+	np := &v1alpha1.NetworkPolicy{
+		Provider: cluster.NetworkPolicy.Provider.String(),
+	}
+
+	ms := &v1alpha1.Master{
+		Version:          cluster.Master.Version,
+		SecurityGroupIds: cluster.Master.SecurityGroupIds,
+	}
+	mp := &v1alpha1.MasterMaintenancePolicy{
+		AutoUpgrade: cluster.Master.MaintenancePolicy.AutoUpgrade,
+		MaintenanceWindow: &v1alpha1.MaintenanceWindow{
+			Policy: &v1alpha1.MaintenanceWindow_Policy{},
+		},
+	}
+
+	switch cluster.Master.MaintenancePolicy.MaintenanceWindow.Policy.(type) {
+	case *k8s_pb.MaintenanceWindow_Anytime:
+		mp.MaintenanceWindow.Policy = &v1alpha1.MaintenanceWindow_Policy{Anytime: &v1alpha1.AnytimeMaintenanceWindow{}}
+
+	case *k8s_pb.MaintenanceWindow_DailyMaintenanceWindow:
+		mp.MaintenanceWindow.Policy = &v1alpha1.MaintenanceWindow_Policy{
+			DailyMaintenanceWindow: &v1alpha1.DailyMaintenanceWindow{
+				StartTime: &v1alpha1.TimeOfDay{
+					Hours:   cluster.Master.MaintenancePolicy.MaintenanceWindow.GetDailyMaintenanceWindow().StartTime.Hours,
+					Minutes: cluster.Master.MaintenancePolicy.MaintenanceWindow.GetDailyMaintenanceWindow().StartTime.Minutes,
+					Seconds: cluster.Master.MaintenancePolicy.MaintenanceWindow.GetDailyMaintenanceWindow().StartTime.Seconds,
+					Nanos:   cluster.Master.MaintenancePolicy.MaintenanceWindow.GetDailyMaintenanceWindow().StartTime.Nanos,
+				},
+				Duration: &v1alpha1.Duration{
+					Seconds: cluster.Master.MaintenancePolicy.MaintenanceWindow.GetDailyMaintenanceWindow().Duration.Seconds,
+					Nanos:   cluster.Master.MaintenancePolicy.MaintenanceWindow.GetDailyMaintenanceWindow().Duration.Nanos,
+				},
+			},
+		}
+	case *k8s_pb.MaintenanceWindow_WeeklyMaintenanceWindow:
+		daysOfWeek := []*v1alpha1.DaysOfWeekMaintenanceWindow{}
+		pbdow := cluster.Master.MaintenancePolicy.MaintenanceWindow.GetWeeklyMaintenanceWindow().DaysOfWeek
+		for _, dayOfWeek := range pbdow {
+			dow := &v1alpha1.DaysOfWeekMaintenanceWindow{
+				StartTime: &v1alpha1.TimeOfDay{
+					Hours:   dayOfWeek.StartTime.Hours,
+					Minutes: dayOfWeek.StartTime.Minutes,
+					Seconds: dayOfWeek.StartTime.Seconds,
+					Nanos:   dayOfWeek.StartTime.Nanos,
+				},
+				Duration: &v1alpha1.Duration{
+					Seconds: dayOfWeek.Duration.Seconds,
+					Nanos:   dayOfWeek.Duration.Nanos,
+				},
+			}
+			days := []string{}
+			for _, day := range dayOfWeek.Days {
+				days = append(days, dayofweek.DayOfWeek_name[int32(day)])
+			}
+			dow.Days = days
+			daysOfWeek = append(daysOfWeek, dow)
+		}
+
+		mp.MaintenanceWindow.Policy = &v1alpha1.MaintenanceWindow_Policy{
+			WeeklyMaintenanceWindow: &v1alpha1.WeeklyMaintenanceWindow{
+				DaysOfWeek: daysOfWeek,
+			},
+		}
+	}
+	ms.MaintenancePolicy = mp
+
+	ms.MasterType = &v1alpha1.Master_MasterType{}
+	switch cluster.Master.MasterType.(type) {
+	case *k8s_pb.Master_ZonalMaster:
+		master := cluster.Master.GetZonalMaster()
+		ms.MasterType.ZonalMaster = &v1alpha1.ZonalMaster{
+			ZoneId:            master.GetZoneId(),
+			InternalV4Address: master.GetInternalV4Address(),
+			ExternalV4Address: master.GetExternalV4Address(),
+		}
+	case *k8s_pb.Master_RegionalMaster:
+		master := cluster.Master.GetRegionalMaster()
+		ms.MasterType.RegionalMaster = &v1alpha1.RegionalMaster{
+			RegionId:          master.GetRegionId(),
+			InternalV4Address: master.GetInternalV4Address(),
+			ExternalV4Address: master.GetExternalV4Address(),
+		}
+	}
+
 	cr.Status.AtProvider.CreatedAt = cluster.CreatedAt.String()
 	cr.Status.AtProvider.ID = cluster.Id
 	cr.Status.AtProvider.FolderID = cluster.FolderId
@@ -206,6 +294,11 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	cr.Status.AtProvider.Description = cluster.Description
 	cr.Status.AtProvider.Status = cluster.Status.String()
 	cr.Status.AtProvider.Health = cluster.Health.String()
+	cr.Status.AtProvider.ServiceAccountId = cluster.ServiceAccountId
+	cr.Status.AtProvider.NodeServiceAccountId = cluster.NodeServiceAccountId
+	cr.Status.AtProvider.InternetGateway = igw
+	cr.Status.AtProvider.NetworkPolicy = np
+	cr.Status.AtProvider.Master = ms
 
 	cr.SetConditions(xpv1.Available())
 
@@ -226,7 +319,71 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	}, nil
 }
 
-func fillMasterSpecPb(ctx context.Context, c *external, ms *v1alpha1.MasterSpec, folderID string) (*k8s_pb.MasterSpec, error) {
+func fillMaintenancePolicyPb(ctx context.Context, ms *v1alpha1.MasterSpec) *k8s_pb.MasterMaintenancePolicy {
+	res := &k8s_pb.MasterMaintenancePolicy{}
+	if ms.MaintenancePolicy == nil {
+		return res
+	}
+	res.AutoUpgrade = ms.MaintenancePolicy.AutoUpgrade
+
+	pbMaintenanceWindow := &k8s_pb.MaintenanceWindow{}
+	if ms.MaintenancePolicy.MaintenanceWindow.Policy.Anytime != nil {
+		pbMaintenanceWindow.Policy = &k8s_pb.MaintenanceWindow_Anytime{}
+	} else if ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow != nil {
+		pbMaintenanceWindow.Policy = &k8s_pb.MaintenanceWindow_DailyMaintenanceWindow{
+			DailyMaintenanceWindow: &k8s_pb.DailyMaintenanceWindow{
+				StartTime: &timeofday.TimeOfDay{
+					Hours:   ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Hours,
+					Minutes: ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Minutes,
+					Seconds: ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Seconds,
+					Nanos:   ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Nanos,
+				},
+				Duration: &duration.Duration{
+					Seconds: ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.Duration.Seconds,
+					Nanos:   ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.Duration.Nanos,
+				},
+			},
+		}
+	} else if ms.MaintenancePolicy.MaintenanceWindow.Policy.WeeklyMaintenanceWindow != nil {
+		pbDaysOfWeek := []*k8s_pb.DaysOfWeekMaintenanceWindow{}
+		for _, days := range ms.MaintenancePolicy.MaintenanceWindow.Policy.WeeklyMaintenanceWindow.DaysOfWeek {
+			pbDays := []dayofweek.DayOfWeek{}
+			var pbd dayofweek.DayOfWeek
+			for _, d := range days.Days {
+				if val, ok := dayofweek.DayOfWeek_value[d]; ok {
+					pbd = dayofweek.DayOfWeek(val)
+				} else {
+					pbd = dayofweek.DayOfWeek_DAY_OF_WEEK_UNSPECIFIED
+				}
+				pbDays = append(pbDays, pbd)
+			}
+			pbDayOfWeek := &k8s_pb.DaysOfWeekMaintenanceWindow{
+				StartTime: &timeofday.TimeOfDay{
+					Hours:   days.StartTime.Hours,
+					Minutes: days.StartTime.Minutes,
+					Seconds: days.StartTime.Seconds,
+					Nanos:   days.StartTime.Nanos,
+				},
+				Duration: &duration.Duration{
+					Seconds: days.Duration.Seconds,
+					Nanos:   days.Duration.Nanos,
+				},
+				Days: pbDays,
+			}
+			pbDaysOfWeek = append(pbDaysOfWeek, pbDayOfWeek)
+		}
+
+		pbMaintenanceWindow.Policy = &k8s_pb.MaintenanceWindow_WeeklyMaintenanceWindow{
+			WeeklyMaintenanceWindow: &k8s_pb.WeeklyMaintenanceWindow{
+				DaysOfWeek: pbDaysOfWeek,
+			},
+		}
+	}
+	res.MaintenanceWindow = pbMaintenanceWindow
+	return res
+}
+
+func (c *external) fillMasterSpecPb(ctx context.Context, ms *v1alpha1.MasterSpec, folderID string) (*k8s_pb.MasterSpec, error) {
 	if ms == nil {
 		return nil, errors.Wrap(fmt.Errorf("master spec is nil"), errCreateCluster)
 	}
@@ -291,66 +448,82 @@ func fillMasterSpecPb(ctx context.Context, c *external, ms *v1alpha1.MasterSpec,
 	}
 
 	// Maintenance_Policy, probably should be another function
-	if ms.MaintenancePolicy != nil {
-		pbMasterSpec.MaintenancePolicy = &k8s_pb.MasterMaintenancePolicy{
-			AutoUpgrade: ms.MaintenancePolicy.AutoUpgrade,
-		}
-		pbMaintenanceWindow := &k8s_pb.MaintenanceWindow{}
-		if ms.MaintenancePolicy.MaintenanceWindow.Policy.Anytime != nil {
-			pbMaintenanceWindow.Policy = &k8s_pb.MaintenanceWindow_Anytime{}
-		} else if ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow != nil {
-			pbMaintenanceWindow.Policy = &k8s_pb.MaintenanceWindow_DailyMaintenanceWindow{
-				DailyMaintenanceWindow: &k8s_pb.DailyMaintenanceWindow{
-					StartTime: &timeofday.TimeOfDay{
-						Hours:   ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Hours,
-						Minutes: ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Minutes,
-						Seconds: ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Seconds,
-						Nanos:   ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Nanos,
-					},
-					Duration: &duration.Duration{
-						Seconds: ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.Duration.Seconds,
-						Nanos:   ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.Duration.Nanos,
-					},
-				},
+	// TODO: move to function
+	/*
+		if ms.MaintenancePolicy != nil {
+			pbMasterSpec.MaintenancePolicy = &k8s_pb.MasterMaintenancePolicy{
+				AutoUpgrade: ms.MaintenancePolicy.AutoUpgrade,
 			}
-		} else if ms.MaintenancePolicy.MaintenanceWindow.Policy.WeeklyMaintenanceWindow != nil {
-			pbDaysOfWeek := []*k8s_pb.DaysOfWeekMaintenanceWindow{}
-			for _, days := range ms.MaintenancePolicy.MaintenanceWindow.Policy.WeeklyMaintenanceWindow.DaysOfWeek {
-				pbDays := []dayofweek.DayOfWeek{}
-				var pbd dayofweek.DayOfWeek
-				for _, d := range days.Days {
-					if val, ok := dayofweek.DayOfWeek_value[d]; ok {
-						pbd = dayofweek.DayOfWeek(val)
-					} else {
-						pbd = dayofweek.DayOfWeek_DAY_OF_WEEK_UNSPECIFIED
+			pbMaintenanceWindow := &k8s_pb.MaintenanceWindow{}
+			if ms.MaintenancePolicy.MaintenanceWindow.Policy.Anytime != nil {
+				pbMaintenanceWindow.Policy = &k8s_pb.MaintenanceWindow_Anytime{}
+			} else if ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow != nil {
+				pbMaintenanceWindow.Policy = &k8s_pb.MaintenanceWindow_DailyMaintenanceWindow{
+					DailyMaintenanceWindow: &k8s_pb.DailyMaintenanceWindow{
+						StartTime: &timeofday.TimeOfDay{
+							Hours:   ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Hours,
+							Minutes: ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Minutes,
+							Seconds: ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Seconds,
+							Nanos:   ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.StartTime.Nanos,
+						},
+						Duration: &duration.Duration{
+							Seconds: ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.Duration.Seconds,
+							Nanos:   ms.MaintenancePolicy.MaintenanceWindow.Policy.DailyMaintenanceWindow.Duration.Nanos,
+						},
+					},
+				}
+			} else if ms.MaintenancePolicy.MaintenanceWindow.Policy.WeeklyMaintenanceWindow != nil {
+				pbDaysOfWeek := []*k8s_pb.DaysOfWeekMaintenanceWindow{}
+				for _, days := range ms.MaintenancePolicy.MaintenanceWindow.Policy.WeeklyMaintenanceWindow.DaysOfWeek {
+					pbDays := []dayofweek.DayOfWeek{}
+					var pbd dayofweek.DayOfWeek
+					for _, d := range days.Days {
+						if val, ok := dayofweek.DayOfWeek_value[d]; ok {
+							pbd = dayofweek.DayOfWeek(val)
+						} else {
+							pbd = dayofweek.DayOfWeek_DAY_OF_WEEK_UNSPECIFIED
+						}
+						pbDays = append(pbDays, pbd)
 					}
-					pbDays = append(pbDays, pbd)
+					pbDayOfWeek := &k8s_pb.DaysOfWeekMaintenanceWindow{
+						StartTime: &timeofday.TimeOfDay{
+							Hours:   days.StartTime.Hours,
+							Minutes: days.StartTime.Minutes,
+							Seconds: days.StartTime.Seconds,
+							Nanos:   days.StartTime.Nanos,
+						},
+						Duration: &duration.Duration{
+							Seconds: days.Duration.Seconds,
+							Nanos:   days.Duration.Nanos,
+						},
+						Days: pbDays,
+					}
+					pbDaysOfWeek = append(pbDaysOfWeek, pbDayOfWeek)
 				}
-				pbDayOfWeek := &k8s_pb.DaysOfWeekMaintenanceWindow{
-					StartTime: &timeofday.TimeOfDay{
-						Hours:   days.StartTime.Hours,
-						Minutes: days.StartTime.Minutes,
-						Seconds: days.StartTime.Seconds,
-						Nanos:   days.StartTime.Nanos,
-					},
-					Duration: &duration.Duration{
-						Seconds: days.Duration.Seconds,
-						Nanos:   days.Duration.Nanos,
-					},
-					Days: pbDays,
-				}
-				pbDaysOfWeek = append(pbDaysOfWeek, pbDayOfWeek)
-			}
 
-			pbMaintenanceWindow.Policy = &k8s_pb.MaintenanceWindow_WeeklyMaintenanceWindow{
-				WeeklyMaintenanceWindow: &k8s_pb.WeeklyMaintenanceWindow{
-					DaysOfWeek: pbDaysOfWeek,
-				},
+				pbMaintenanceWindow.Policy = &k8s_pb.MaintenanceWindow_WeeklyMaintenanceWindow{
+					WeeklyMaintenanceWindow: &k8s_pb.WeeklyMaintenanceWindow{
+						DaysOfWeek: pbDaysOfWeek,
+					},
+				}
 			}
+			pbMasterSpec.MaintenancePolicy.MaintenanceWindow = pbMaintenanceWindow
 		}
-		pbMasterSpec.MaintenancePolicy.MaintenanceWindow = pbMaintenanceWindow
-	}
+	*/
+	pbMasterSpec.MaintenancePolicy = fillMaintenancePolicyPb(ctx, ms)
 	return pbMasterSpec, nil
+}
+
+func (c *external) getAccID(ctx context.Context, folderID, accName string) (string, error) {
+	req := &acc_pb.ListServiceAccountsRequest{
+		FolderId: folderID,
+		Filter:   sdkresolvers.CreateResolverFilter("name", accName),
+	}
+	resp, err := c.accs.List(ctx, req)
+	if err != nil {
+		return "", err
+	}
+	return resp.ServiceAccounts[0].Id, nil
 }
 
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
@@ -358,8 +531,6 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	if !ok {
 		return managed.ExternalCreation{}, errors.New(errNotClusterType)
 	}
-
-	fmt.Printf("\n\nCreating: %+v\n\n", cr)
 
 	cr.Status.SetConditions(xpv1.Creating())
 
@@ -372,28 +543,15 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalCreation{}, errors.New(errGetNetwork)
 	}
 
-	serviceAccReq := &acc_pb.ListServiceAccountsRequest{
-		FolderId: cr.Spec.ForProvider.FolderID,
-		// Filter:   sdkresolvers.CreateResolverFilter("name", cr.Spec.ForProvider.ServiceAccountName),
-		Filter: fmt.Sprintf("name='%s'", cr.Spec.ForProvider.ServiceAccountName),
-	}
-	serviceAccResp, err := c.accs.List(ctx, serviceAccReq)
+	serviceAccID, err := c.getAccID(ctx, cr.Spec.ForProvider.FolderID, cr.Spec.ForProvider.ServiceAccountName)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.New(errGetServiceAcc)
 	}
 
-	fmt.Printf("\n serviceAccResp: %s\n", serviceAccResp)
-
-	nodeAccReq := &acc_pb.ListServiceAccountsRequest{
-		FolderId: cr.Spec.ForProvider.FolderID,
-		// Filter:   sdkresolvers.CreateResolverFilter("name", cr.Spec.ForProvider.NodeServiceAccountName),
-		Filter: fmt.Sprintf("name='%s'", cr.Spec.ForProvider.ServiceAccountName),
-	}
-	nodeAccResp, err := c.accs.List(ctx, nodeAccReq)
+	nodeAccID, err := c.getAccID(ctx, cr.Spec.ForProvider.FolderID, cr.Spec.ForProvider.NodeServiceAccountName)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.New(errGetNodeServiceAcc)
 	}
-	fmt.Printf("\n nodeAccResp: %s\n", nodeAccResp)
 
 	req := &k8s_pb.CreateClusterRequest{
 		FolderId:             cr.Spec.ForProvider.FolderID,
@@ -401,8 +559,8 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		Description:          cr.Spec.ForProvider.Description,
 		Labels:               cr.Spec.ForProvider.Labels,
 		NetworkId:            nrsp.Networks[0].Id,
-		ServiceAccountId:     serviceAccResp.ServiceAccounts[0].Id,
-		NodeServiceAccountId: nodeAccResp.ServiceAccounts[0].Id,
+		ServiceAccountId:     serviceAccID,
+		NodeServiceAccountId: nodeAccID,
 	}
 	// release channel
 	if r, ok := k8s_pb.ReleaseChannel_value[strings.ToUpper(cr.Spec.ForProvider.ReleaseChannel)]; ok {
@@ -411,7 +569,7 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		req.ReleaseChannel = k8s_pb.ReleaseChannel_RELEASE_CHANNEL_UNSPECIFIED
 	}
 	// Fill MasterSpec, do better
-	pbMasterSpec, err := fillMasterSpecPb(ctx, c, cr.Spec.ForProvider.MasterSpec, cr.Spec.ForProvider.FolderID)
+	pbMasterSpec, err := c.fillMasterSpecPb(ctx, cr.Spec.ForProvider.MasterSpec, cr.Spec.ForProvider.FolderID)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, errCreateCluster)
 	}
@@ -469,8 +627,6 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	}
 
 	// End of all fills
-	fmt.Printf("\n\n REQUEST: %s\n\n", req)
-
 	if _, err := c.client.Create(ctx, req); err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, errCreateCluster)
 	}
@@ -487,34 +643,99 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	if !ok {
 		return managed.ExternalUpdate{}, errors.New(errNotClusterType)
 	}
-	fmt.Println(cr)
-	/*
-		req := &k8s_pb.GetClusterRequest{ClusterId: cr.Status.AtProvider.ID}
-		resp, err := c.client.Get(ctx, req)
-		if err != nil {
-			return managed.ExternalUpdate{}, errors.Wrap(err, errGetCluster)
-		}
-		ureq := &k8s_pb.UpdateClusterRequest{
-			ClusterId:   resp.Id,
-			Name:        cr.Spec.ForProvider.Name,
-			Description: cr.Spec.ForProvider.Description,
-			Labels:      cr.Spec.ForProvider.Labels,
-			// No UpdateMask support for now. It seems useless, when we use yaml files to "rule them all".
-		}
-		// TODO Do better
-		if cr.Status.AtProvider.Name != cr.Spec.ForProvider.Name ||
-			!reflect.DeepEqual(cr.Status.AtProvider.Labels, cr.Spec.ForProvider.Labels) ||
-			cr.Status.AtProvider.Description != cr.Spec.ForProvider.Description {
-			_, err = c.client.Update(ctx, ureq)
-			if err != nil {
-				return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateCluster)
-			}
-		}
+	fmt.Printf("\n\n%+v\n\n", cr)
+	req := &k8s_pb.GetClusterRequest{ClusterId: cr.Status.AtProvider.ID}
+	resp, err := c.client.Get(ctx, req)
+	if err != nil {
+		return managed.ExternalUpdate{}, errors.Wrap(err, errGetCluster)
+	}
 
-		cr.Status.AtProvider.Name = cr.Spec.ForProvider.Name
-		cr.Status.AtProvider.Labels = cr.Spec.ForProvider.Labels
-		cr.Status.AtProvider.Description = cr.Spec.ForProvider.Description
-	*/
+	svcAccID, err := c.getAccID(ctx, cr.Spec.ForProvider.FolderID, cr.Spec.ForProvider.ServiceAccountName)
+	if err != nil {
+		return managed.ExternalUpdate{}, errors.Wrap(err, errGetServiceAcc)
+	}
+	nodeAccID, err := c.getAccID(ctx, cr.Spec.ForProvider.FolderID, cr.Spec.ForProvider.NodeServiceAccountName)
+	if err != nil {
+		return managed.ExternalUpdate{}, errors.Wrap(err, errGetNodeServiceAcc)
+	}
+	ureq := &k8s_pb.UpdateClusterRequest{
+		ClusterId: resp.Id,
+	}
+
+	needUpdate := false
+	paths := []string{}
+	if cr.Status.AtProvider.Name != cr.Spec.ForProvider.Name {
+		ureq.Name = cr.Spec.ForProvider.Name
+		needUpdate = true
+		paths = append(paths, "name")
+	}
+	if cr.Status.AtProvider.Description != cr.Spec.ForProvider.Description {
+		ureq.Description = cr.Spec.ForProvider.Description
+		needUpdate = true
+		paths = append(paths, "description")
+	}
+	if !reflect.DeepEqual(cr.Status.AtProvider.Labels, cr.Spec.ForProvider.Labels) {
+		ureq.Labels = cr.Spec.ForProvider.Labels
+		needUpdate = true
+		paths = append(paths, "labels")
+	}
+	if cr.Status.AtProvider.ServiceAccountId != svcAccID {
+		ureq.ServiceAccountId = svcAccID
+		needUpdate = true
+		paths = append(paths, "service_account_id")
+	}
+	if cr.Status.AtProvider.NodeServiceAccountId != nodeAccID {
+		ureq.NodeServiceAccountId = nodeAccID
+		needUpdate = true
+		paths = append(paths, "node_service_account_id")
+	}
+	if !reflect.DeepEqual(cr.Status.AtProvider.InternetGateway, cr.Spec.ForProvider.InternetGateway) {
+		ureq.InternetGateway = &k8s_pb.UpdateClusterRequest_GatewayIpv4Address{
+			GatewayIpv4Address: cr.Spec.ForProvider.InternetGateway.GatewayIpv4Address,
+		}
+		needUpdate = true
+		paths = append(paths, "internet_gateway")
+	}
+	if !reflect.DeepEqual(cr.Status.AtProvider.NetworkPolicy, cr.Spec.ForProvider.NetworkPolicy) {
+		var p k8s_pb.NetworkPolicy_Provider
+		if v, ok := k8s_pb.NetworkPolicy_Provider_value[cr.Spec.ForProvider.NetworkPolicy.Provider]; ok {
+			p = k8s_pb.NetworkPolicy_Provider(v)
+		} else {
+			p = k8s_pb.NetworkPolicy_PROVIDER_UNSPECIFIED
+		}
+		ureq.NetworkPolicy = &k8s_pb.NetworkPolicy{
+			Provider: p,
+		}
+		needUpdate = true
+		paths = append(paths, "network_policy")
+	}
+	if !reflect.DeepEqual(cr.Status.AtProvider.Master.MaintenancePolicy, cr.Spec.ForProvider.MasterSpec.MaintenancePolicy) ||
+		!reflect.DeepEqual(cr.Status.AtProvider.Master.SecurityGroupIds, cr.Spec.ForProvider.MasterSpec.SecurityGroupIds) ||
+		cr.Status.AtProvider.Master.Version != cr.Spec.ForProvider.MasterSpec.Version {
+
+		ureq.MasterSpec = &k8s_pb.MasterUpdateSpec{
+			Version: &k8s_pb.UpdateVersionSpec{
+				// Support only _Version for now
+				Specifier: &k8s_pb.UpdateVersionSpec_Version{
+					Version: cr.Spec.ForProvider.MasterSpec.Version,
+				},
+			},
+			SecurityGroupIds:  cr.Spec.ForProvider.MasterSpec.SecurityGroupIds,
+			MaintenancePolicy: fillMaintenancePolicyPb(ctx, cr.Spec.ForProvider.MasterSpec),
+		}
+	}
+	// TODO Do better
+	if needUpdate {
+		updateMask := &field_mask.FieldMask{Paths: paths}
+		ureq.UpdateMask = updateMask
+
+		fmt.Printf("\nPaths: %s\n", ureq.UpdateMask.Paths)
+		fmt.Printf("\nREQ: %s\n", ureq)
+		_, err := c.client.Update(ctx, ureq)
+		if err != nil {
+			return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateCluster)
+		}
+	}
 
 	return managed.ExternalUpdate{
 		// Optionally return any details that may be required to connect to the
