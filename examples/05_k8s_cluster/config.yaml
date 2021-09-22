@@ -21,10 +21,10 @@ spec:
           policy:
             daily_maintenance_window:
               start_time:
-                hours: 02
+                hours: 01
                 minutes: 30
               duration:
-                seconds: 3600
+                seconds: 7200
     ip_allocation_policy:
       cluster_ipv4_cidr_block: 10.111.0.0/16
       service_ipv4_cidr_block: 10.222.0.0/16

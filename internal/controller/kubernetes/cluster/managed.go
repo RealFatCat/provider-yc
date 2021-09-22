@@ -202,8 +202,14 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	cluster := resp.Clusters[0]
 
 	igw := &v1alpha1.Cluster_GatewayIpv4Address{GatewayIpv4Address: cluster.GetGatewayIpv4Address()}
-	np := &v1alpha1.NetworkPolicy{
-		Provider: cluster.NetworkPolicy.Provider.String(),
+
+	var np *v1alpha1.NetworkPolicy
+	if cluster.NetworkPolicy != nil {
+		np = &v1alpha1.NetworkPolicy{
+			Provider: cluster.NetworkPolicy.GetProvider().String(),
+		}
+	} else {
+		np = &v1alpha1.NetworkPolicy{}
 	}
 
 	ms := &v1alpha1.Master{
@@ -690,24 +696,28 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		paths = append(paths, "node_service_account_id")
 	}
 	if !reflect.DeepEqual(cr.Status.AtProvider.InternetGateway, cr.Spec.ForProvider.InternetGateway) {
-		ureq.InternetGateway = &k8s_pb.UpdateClusterRequest_GatewayIpv4Address{
-			GatewayIpv4Address: cr.Spec.ForProvider.InternetGateway.GatewayIpv4Address,
+		if cr.Spec.ForProvider.InternetGateway != nil {
+			ureq.InternetGateway = &k8s_pb.UpdateClusterRequest_GatewayIpv4Address{
+				GatewayIpv4Address: cr.Spec.ForProvider.InternetGateway.GatewayIpv4Address,
+			}
+			needUpdate = true
+			paths = append(paths, "internet_gateway")
 		}
-		needUpdate = true
-		paths = append(paths, "internet_gateway")
 	}
 	if !reflect.DeepEqual(cr.Status.AtProvider.NetworkPolicy, cr.Spec.ForProvider.NetworkPolicy) {
-		var p k8s_pb.NetworkPolicy_Provider
-		if v, ok := k8s_pb.NetworkPolicy_Provider_value[cr.Spec.ForProvider.NetworkPolicy.Provider]; ok {
-			p = k8s_pb.NetworkPolicy_Provider(v)
-		} else {
-			p = k8s_pb.NetworkPolicy_PROVIDER_UNSPECIFIED
+		if cr.Spec.ForProvider.NetworkPolicy != nil {
+			var p k8s_pb.NetworkPolicy_Provider
+			if v, ok := k8s_pb.NetworkPolicy_Provider_value[cr.Spec.ForProvider.NetworkPolicy.Provider]; ok {
+				p = k8s_pb.NetworkPolicy_Provider(v)
+			} else {
+				p = k8s_pb.NetworkPolicy_PROVIDER_UNSPECIFIED
+			}
+			ureq.NetworkPolicy = &k8s_pb.NetworkPolicy{
+				Provider: p,
+			}
+			needUpdate = true
+			paths = append(paths, "network_policy")
 		}
-		ureq.NetworkPolicy = &k8s_pb.NetworkPolicy{
-			Provider: p,
-		}
-		needUpdate = true
-		paths = append(paths, "network_policy")
 	}
 	if !reflect.DeepEqual(cr.Status.AtProvider.Master.MaintenancePolicy, cr.Spec.ForProvider.MasterSpec.MaintenancePolicy) ||
 		!reflect.DeepEqual(cr.Status.AtProvider.Master.SecurityGroupIds, cr.Spec.ForProvider.MasterSpec.SecurityGroupIds) ||
@@ -723,6 +733,8 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 			SecurityGroupIds:  cr.Spec.ForProvider.MasterSpec.SecurityGroupIds,
 			MaintenancePolicy: fillMaintenancePolicyPb(ctx, cr.Spec.ForProvider.MasterSpec),
 		}
+		needUpdate = true
+		paths = append(paths, "master_spec")
 	}
 	// TODO Do better
 	if needUpdate {
@@ -730,7 +742,8 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		ureq.UpdateMask = updateMask
 
 		fmt.Printf("\nPaths: %s\n", ureq.UpdateMask.Paths)
-		fmt.Printf("\nREQ: %s\n", ureq)
+		fmt.Printf("\nUpdate REQ: %s\n", ureq)
+
 		_, err := c.client.Update(ctx, ureq)
 		if err != nil {
 			return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateCluster)
