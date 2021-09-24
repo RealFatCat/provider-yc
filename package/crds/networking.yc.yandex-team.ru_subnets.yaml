@@ -19,16 +19,13 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.atProvider.name
-      name: YC_NAME
-      type: string
-    - jsonPath: .status.atProvider.network_name
+    - jsonPath: .status.atProvider.networkName
       name: NETWORK_NAME
       type: string
     - jsonPath: .status.atProvider.range
       name: RANGE
       type: string
-    - jsonPath: .status.atProvider.zone_id
+    - jsonPath: .status.atProvider.zoneId
       name: ZONE_ID
       type: string
     - jsonPath: .metadata.creationTimestamp
@@ -56,49 +53,50 @@ spec:
                 - Orphan
                 - Delete
                 type: string
-              forProvider:
-                description: SubnetParameters are the configurable fields of a Subnet.
+              description:
+                type: string
+              dhcpOptions:
+                description: DhcpOptions contains dhcp options for Subnet
                 properties:
-                  description:
+                  domainName:
                     type: string
-                  dhcp_options:
-                    description: DhcpOptions contains dhcp options for Subnet
-                    properties:
-                      domain_name:
-                        type: string
-                      domain_name_servers:
-                        items:
-                          type: string
-                        type: array
-                      ntp_servers:
-                        items:
-                          type: string
-                        type: array
-                    type: object
-                  folder_id:
-                    type: string
-                  labels:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  name:
-                    type: string
-                  network_name:
-                    type: string
-                  route_table_id:
-                    type: string
-                  v4_cidr_blocks:
+                  domainNameServers:
                     items:
                       type: string
                     type: array
-                  zone_id:
+                  ntpServers:
+                    items:
+                      type: string
+                    type: array
+                type: object
+              folderId:
+                type: string
+              labels:
+                additionalProperties:
+                  type: string
+                type: object
+              networkId:
+                type: string
+              networkIdRef:
+                description: A Reference to a named object.
+                properties:
+                  name:
+                    description: Name of the referenced object.
                     type: string
                 required:
-                - folder_id
                 - name
-                - network_name
-                - v4_cidr_blocks
-                - zone_id
+                type: object
+              networkIdSelector:
+                description: A Selector selects an object.
+                properties:
+                  matchControllerRef:
+                    description: MatchControllerRef ensures an object with the same controller reference as the selecting object is selected.
+                    type: boolean
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: MatchLabels ensures an object with matching labels is selected.
+                    type: object
                 type: object
               providerConfigRef:
                 description: ProviderConfigReference specifies how the provider that will be used to create, observe, update, and delete this managed resource should be configured.
@@ -118,6 +116,12 @@ spec:
                 required:
                 - name
                 type: object
+              routeTableId:
+                type: string
+              v4CidrBlocks:
+                items:
+                  type: string
+                type: array
               writeConnectionSecretToRef:
                 description: WriteConnectionSecretToReference specifies the namespace and name of a Secret to which any connection details for this managed resource should be written. Connection details frequently include the endpoint, username, and password required to connect to the managed resource.
                 properties:
@@ -131,8 +135,13 @@ spec:
                 - name
                 - namespace
                 type: object
+              zoneId:
+                type: string
             required:
-            - forProvider
+            - folderId
+            - networkIdRef
+            - v4CidrBlocks
+            - zoneId
             type: object
           status:
             description: A SubnetStatus represents the observed state of a Subnet.
@@ -142,13 +151,13 @@ spec:
                 properties:
                   ID:
                     type: string
-                  created_at:
+                  createdAt:
                     type: string
                   description:
                     type: string
-                  dhcp_options:
+                  dhcpOptions:
                     type: string
-                  folder_id:
+                  folderId:
                     type: string
                   labels:
                     additionalProperties:
@@ -156,33 +165,33 @@ spec:
                     type: object
                   name:
                     type: string
-                  network_id:
+                  networkId:
                     type: string
-                  network_name:
+                  networkName:
                     type: string
                   range:
                     type: string
-                  route_table_id:
+                  routeTableId:
                     type: string
-                  v4_cidr_blocks:
+                  v4CidrBlocks:
                     items:
                       type: string
                     type: array
-                  v6_cidr_blocks:
+                  v6CidrBlocks:
                     items:
                       type: string
                     type: array
-                  zone_id:
+                  zoneId:
                     type: string
                 required:
                 - ID
-                - created_at
-                - folder_id
+                - createdAt
+                - folderId
                 - name
-                - network_id
-                - network_name
+                - networkId
+                - networkName
                 - range
-                - zone_id
+                - zoneId
                 type: object
               conditions:
                 description: Conditions of the resource.

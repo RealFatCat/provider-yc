@@ -22,9 +22,6 @@ spec:
     - jsonPath: .status.atProvider.ID
       name: ID
       type: string
-    - jsonPath: .status.atProvider.name
-      name: YC_NAME
-      type: string
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
@@ -50,22 +47,13 @@ spec:
                 - Orphan
                 - Delete
                 type: string
-              forProvider:
-                description: NetworkParameters are the configurable fields of a Network.
-                properties:
-                  description:
-                    type: string
-                  folder_id:
-                    type: string
-                  labels:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  name:
-                    type: string
-                required:
-                - folder_id
-                - name
+              description:
+                type: string
+              folderId:
+                type: string
+              labels:
+                additionalProperties:
+                  type: string
                 type: object
               providerConfigRef:
                 description: ProviderConfigReference specifies how the provider that will be used to create, observe, update, and delete this managed resource should be configured.
@@ -99,7 +87,7 @@ spec:
                 - namespace
                 type: object
             required:
-            - forProvider
+            - folderId
             type: object
           status:
             description: A NetworkStatus represents the observed state of a Network.
@@ -109,13 +97,13 @@ spec:
                 properties:
                   ID:
                     type: string
-                  created_at:
+                  createdAt:
                     type: string
-                  default_security_group_id:
+                  defaultSecurityGroupId:
                     type: string
                   description:
                     type: string
-                  folder_id:
+                  folderId:
                     type: string
                   labels:
                     additionalProperties:
@@ -125,8 +113,8 @@ spec:
                     type: string
                 required:
                 - ID
-                - created_at
-                - folder_id
+                - createdAt
+                - folderId
                 - name
                 type: object
               conditions:
