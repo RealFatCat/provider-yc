@@ -1,0 +1,37 @@
+apiVersion: kubernetes.yc.yandex-team.ru/v1alpha1
+kind: Cluster
+metadata:
+  name: k8s-cluster-test-olegsenin
+spec:
+  forProvider:
+    name: k8s-cluster-from-kuber
+    folder_id: b1gjmmtufqjb87p5tojj
+    zone_id: ru-central1-a
+    network_name: network-from-kuber
+    master_spec:
+      master_type:
+        zonal_master_spec:
+          zone_id: ru-central1-a
+          internal_v4_address_spec:
+            subnet_name: subnet-from-kuber
+      version: "1.20"
+      maintenance_policy:
+        auto_upgrade: true
+        maintenance_window:
+          policy:
+            daily_maintenance_window:
+              start_time:
+                hours: 01
+                minutes: 30
+              duration:
+                seconds: 7200
+    ip_allocation_policy:
+      cluster_ipv4_cidr_block: 10.111.0.0/16
+      service_ipv4_cidr_block: 10.222.0.0/16
+      node_ipv4_cidr_mask_size: 24
+    service_account_name: kuber-test
+    node_service_account_name: kuber-test
+    release_channel: stable
+    description: "k8s cluster from kuber"
+  providerConfigRef:
+    name: test-yc
