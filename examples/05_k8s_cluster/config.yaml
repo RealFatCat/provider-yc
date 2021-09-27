@@ -3,7 +3,6 @@ kind: Cluster
 metadata:
   name: k8s-cluster-from-kuber
 spec:
-  forProvider:
   folderId: b1gjmmtufqjb87p5tojj
   zoneId: ru-central1-a
   networkName: network-from-kuber
