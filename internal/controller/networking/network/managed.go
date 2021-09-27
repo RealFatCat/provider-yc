@@ -140,10 +140,6 @@ type external struct {
 	client *vpc.NetworkServiceClient
 }
 
-func setStatus() {
-
-}
-
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
 	cr, ok := mg.(*v1alpha1.Network)
 	if !ok {
@@ -152,29 +148,19 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 
 	// These fmt statements should be removed in the real implementation.
 	fmt.Printf("Observing: %+v", cr)
-	req := &vpc_pb.ListNetworksRequest{FolderId: cr.Spec.ForProvider.FolderID, Filter: fmt.Sprintf("name = '%s'", cr.Spec.ForProvider.Name)}
+	req := &vpc_pb.ListNetworksRequest{FolderId: cr.Spec.FolderID, Filter: fmt.Sprintf("name = '%s'", cr.GetName())}
 	resp, err := c.client.List(ctx, req)
 	if err != nil {
 		return managed.ExternalObservation{}, errors.Wrap(err, errGetNetwork)
 	}
 	if len(resp.Networks) == 0 {
 		return managed.ExternalObservation{
-			// Return false when the external resource does not exist. This lets
-			// the managed resource reconciler know that it needs to call Create to
-			// (re)create the resource, or that it has successfully been deleted.
-			ResourceExists: false,
-
-			// Return false when the external resource exists, but it not up to date
-			// with the desired managed resource state. This lets the managed
-			// resource reconciler know that it needs to call Update.
-			// ResourceUpToDate: true,
-
-			// Return any details that may be required to connect to the external
-			// resource. These will be stored as the connection secret.
+			ResourceExists:    false,
 			ConnectionDetails: managed.ConnectionDetails{},
 		}, nil
 	}
 
+	// TODO: Move to function
 	net := resp.Networks[0]
 	cr.Status.AtProvider.CreatedAt = net.CreatedAt.String()
 	cr.Status.AtProvider.ID = net.Id
@@ -187,18 +173,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	cr.SetConditions(xpv1.Available())
 
 	return managed.ExternalObservation{
-		// Return false when the external resource does not exist. This lets
-		// the managed resource reconciler know that it needs to call Create to
-		// (re)create the resource, or that it has successfully been deleted.
-		ResourceExists: true,
-
-		// Return false when the external resource exists, but it not up to date
-		// with the desired managed resource state. This lets the managed
-		// resource reconciler know that it needs to call Update.
-		// ResourceUpToDate: true,
-
-		// Return any details that may be required to connect to the external
-		// resource. These will be stored as the connection secret.
+		ResourceExists:    true,
 		ConnectionDetails: managed.ConnectionDetails{},
 	}, nil
 }
@@ -214,14 +189,14 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	req := &vpc_pb.CreateNetworkRequest{
 		// To get the folder ID, use a [yandex.cloud.resourcemanager.v1.FolderService.List] request.
-		FolderId: cr.Spec.ForProvider.FolderID,
+		FolderId: cr.Spec.FolderID,
 		// Name of the network.
 		// The name must be unique within the folder.
-		Name: cr.Spec.ForProvider.Name,
+		Name: cr.GetName(),
 		// Description of the network.
-		Description: cr.Spec.ForProvider.Description,
+		Description: cr.Spec.Description,
 		// Resource labels as `` key:value `` pairs.
-		Labels: cr.Spec.ForProvider.Labels,
+		Labels: cr.Spec.Labels,
 	}
 	if _, err := c.client.Create(ctx, req); err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, errCreateVirtualNetwork)
@@ -239,31 +214,27 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	if !ok {
 		return managed.ExternalUpdate{}, errors.New(errNotNetworkType)
 	}
-	req := &vpc_pb.GetNetworkRequest{NetworkId: cr.Status.AtProvider.ID}
-	resp, err := c.client.Get(ctx, req)
-	if err != nil {
-		return managed.ExternalUpdate{}, errors.Wrap(err, errGetNetwork)
-	}
 	ureq := &vpc_pb.UpdateNetworkRequest{
-		NetworkId:   resp.Id,
-		Name:        cr.Spec.ForProvider.Name,
-		Description: cr.Spec.ForProvider.Description,
-		Labels:      cr.Spec.ForProvider.Labels,
+		NetworkId:   cr.Status.AtProvider.ID,
+		Name:        cr.GetName(),
+		Description: cr.Spec.Description,
+		Labels:      cr.Spec.Labels,
 		// No UpdateMask support for now. It seems useless, when we use yaml files to "rule them all".
 	}
-	// TODO Do better
-	if cr.Status.AtProvider.Name != cr.Spec.ForProvider.Name ||
-		!reflect.DeepEqual(cr.Status.AtProvider.Labels, cr.Spec.ForProvider.Labels) ||
-		cr.Status.AtProvider.Description != cr.Spec.ForProvider.Description {
-		_, err = c.client.Update(ctx, ureq)
+	// TODO: Move to function
+	if cr.Status.AtProvider.Name != cr.GetName() ||
+		!reflect.DeepEqual(cr.Status.AtProvider.Labels, cr.Spec.Labels) ||
+		cr.Status.AtProvider.Description != cr.Spec.Description {
+
+		_, err := c.client.Update(ctx, ureq)
 		if err != nil {
 			return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateNetwork)
 		}
 	}
 
-	cr.Status.AtProvider.Name = cr.Spec.ForProvider.Name
-	cr.Status.AtProvider.Labels = cr.Spec.ForProvider.Labels
-	cr.Status.AtProvider.Description = cr.Spec.ForProvider.Description
+	cr.Status.AtProvider.Name = cr.GetName()
+	cr.Status.AtProvider.Labels = cr.Spec.Labels
+	cr.Status.AtProvider.Description = cr.Spec.Description
 
 	return managed.ExternalUpdate{
 		// Optionally return any details that may be required to connect to the

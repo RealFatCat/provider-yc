@@ -25,7 +25,7 @@ import (
 type InternalAddressSpec struct {
 	// ID of the subnet. If no ID is specified, and there only one subnet in specified zone, an address in this subnet will be allocated.
 	// +optional
-	SubnetName string `json:"subnet_name,omitempty"`
+	SubnetName string `json:"subnetName,omitempty"`
 }
 
 type ExternalAddressSpec struct{}
@@ -33,72 +33,72 @@ type ExternalAddressSpec struct{}
 type ZonalMasterSpec struct {
 	// ID of the availability zone.
 	// +optional
-	ZoneId string `json:"zone_id,omitempty"`
+	ZoneId string `json:"zoneId,omitempty"`
 	// Specification of parameters for internal IPv4 networking.
 	// +optional
-	InternalV4AddressSpec *InternalAddressSpec `json:"internal_v4_address_spec,omitempty"`
+	InternalV4AddressSpec *InternalAddressSpec `json:"internalV4addressSpec,omitempty"`
 	// Specification of parameters for external IPv4 networking.
 	// +optional
-	ExternalV4AddressSpec *ExternalAddressSpec `json:"external_v4_address_spec,omitempty"`
+	ExternalV4AddressSpec *ExternalAddressSpec `json:"externalV4AddressSpec,omitempty"`
 }
 
 type RegionalMasterSpec struct {
 	// ID of the availability zone where the master resides.
 	// +optional
-	RegionId string `json:"region_id,omitempty"`
+	RegionId string `json:"regionId,omitempty"`
 	// List of locations where the master will be allocated.
 	// +optional
 	Locations []*MasterLocation `json:"locations,omitempty"`
 	// Specify to allocate a static public IP for the master.
 	// +optional
-	ExternalV4AddressSpec *ExternalAddressSpec `json:"external_v4_address_spec,omitempty"`
+	ExternalV4AddressSpec *ExternalAddressSpec `json:"externalV4AddressSpec,omitempty"`
 }
 
 type MasterLocation struct {
 	// ID of the availability zone.
 	// +optional
-	ZoneId string `json:"zone_id,omitempty"`
+	ZoneId string `json:"zoneId,omitempty"`
 	// If not specified and there is a single subnet in specified zone, address
 	// in this subnet will be allocated.
 	// +optional
-	InternalV4AddressSpec *InternalAddressSpec `json:"internal_v4_address_spec,omitempty"`
+	InternalV4AddressSpec *InternalAddressSpec `json:"internalV4AddressSpec,omitempty"`
 }
 
 type MasterSpec_MasterType struct {
 	// +optional
-	ZonalMasterSpec *ZonalMasterSpec `json:"zonal_master_spec"`
+	ZonalMasterSpec *ZonalMasterSpec `json:"zonalMasterSpec"`
 	// +optional
-	RegionalMasterSpec *RegionalMasterSpec `json:"regional_master_spec"`
+	RegionalMasterSpec *RegionalMasterSpec `json:"regionalMasterSpec"`
 }
 
 type ZonalMaster struct {
 	// ID of the availability zone where the master resides.
-	ZoneId string `json:"zone_id,omitempty"`
+	ZoneId string `json:"zoneId,omitempty"`
 	// IPv4 internal network address that is assigned to the master.
-	InternalV4Address string `json:"internal_v4_address,omitempty"`
+	InternalV4Address string `json:"internalV4Address,omitempty"`
 	// IPv4 external network address that is assigned to the master.
-	ExternalV4Address string `json:"external_v4_address,omitempty"`
+	ExternalV4Address string `json:"externalV4Address,omitempty"`
 }
 
 type RegionalMaster struct {
 	// ID of the region where the master resides.
-	RegionId string `json:"region_id,omitempty"`
+	RegionId string `json:"regionId,omitempty"`
 	// IPv4 internal network address that is assigned to the master.
-	InternalV4Address string `json:"internal_v4_address,omitempty"`
+	InternalV4Address string `json:"internalV4Address,omitempty"`
 	// IPv4 external network address that is assigned to the master.
-	ExternalV4Address string `json:"external_v4_address,omitempty"`
+	ExternalV4Address string `json:"externalV4Address,omitempty"`
 }
 
 type Master_MasterType struct {
 	// Parameters of the availability zone for the master.
-	ZonalMaster    *ZonalMaster    `json:"zonal_master,omitempty"`
-	RegionalMaster *RegionalMaster `json:"regional_master,omitempty"`
+	ZonalMaster    *ZonalMaster    `json:"zonalMaster,omitempty"`
+	RegionalMaster *RegionalMaster `json:"regionalMaster,omitempty"`
 }
 
 type Master struct {
-	MasterType *Master_MasterType `json:"master_type"`
+	MasterType *Master_MasterType `json:"masterType"`
 	// Version of Kubernetes components that runs on the master.
-	Version string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	Version string `json:"version,omitempty"`
 	// Endpoints of the master. Endpoints constitute of scheme and port (i.e. `https://ip-address:port`)
 	//and can be used by the clients to communicate with the Kubernetes API of the Kubernetes cluster.
 	// TODO: if needed
@@ -110,20 +110,20 @@ type Master struct {
 	// TODO: if needed
 	// VersionInfo *VersionInfo `protobuf:"bytes,5,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// Maintenance policy of the master.
-	MaintenancePolicy *MasterMaintenancePolicy `protobuf:"bytes,6,opt,name=maintenance_policy,json=maintenancePolicy,proto3" json:"maintenance_policy,omitempty"`
+	MaintenancePolicy *MasterMaintenancePolicy `json:"maintenancePolicy,omitempty"`
 	// Master security groups.
-	SecurityGroupIds []string `protobuf:"bytes,8,rep,name=security_group_ids,json=securityGroupIds,proto3" json:"security_group_ids,omitempty"`
+	SecurityGroupIds []string `json:"securityGroupIds,omitempty"`
 }
 
 type MasterMaintenancePolicy struct {
 	// If set to true, automatic updates are installed in the specified period of time with no interaction from the user.
 	// If set to false, automatic upgrades are disabled.
 	// +kubebuilder:validation:Required
-	AutoUpgrade bool `json:"auto_upgrade,omitempty"`
+	AutoUpgrade bool `json:"autoUpgrade,omitempty"`
 	// Maintenance window settings. Update will start at the specified time and last no more than the specified duration.
 	// The time is set in UTC.
 	// +kubebuilder:validation:Required
-	MaintenanceWindow *MaintenanceWindow `json:"maintenance_window,omitempty"`
+	MaintenanceWindow *MaintenanceWindow `json:"maintenanceWindow,omitempty"`
 }
 
 type MaintenanceWindow struct {
@@ -143,10 +143,10 @@ type MaintenanceWindow_Policy struct {
 	Anytime *AnytimeMaintenanceWindow `json:"anytime"`
 	// Updating the master on any day during the specified time window.
 	// +optional
-	DailyMaintenanceWindow *DailyMaintenanceWindow `json:"daily_maintenance_window"`
+	DailyMaintenanceWindow *DailyMaintenanceWindow `json:"dailyMaintenanceWindow"`
 	// Updating the master on selected days during the specified time window.
 	// +optional
-	WeeklyMaintenanceWindow *WeeklyMaintenanceWindow `json:"weekly_maintenance_window"`
+	WeeklyMaintenanceWindow *WeeklyMaintenanceWindow `json:"weeklyMaintenanceWindow"`
 }
 
 type AnytimeMaintenanceWindow struct{}
@@ -154,7 +154,7 @@ type AnytimeMaintenanceWindow struct{}
 type DailyMaintenanceWindow struct {
 	// Window start time, in the UTC timezone.
 	// +optional
-	StartTime *TimeOfDay `json:"start_time,omitempty"`
+	StartTime *TimeOfDay `json:"startTime,omitempty"`
 	// Window duration.
 	// +optional
 	Duration *Duration `json:"duration,omitempty"`
@@ -198,7 +198,7 @@ type Duration struct {
 type WeeklyMaintenanceWindow struct {
 	// Days of the week and the maintenance window for these days when automatic updates are allowed.
 	// +optional
-	DaysOfWeek []*DaysOfWeekMaintenanceWindow `json:"days_of_week,omitempty"`
+	DaysOfWeek []*DaysOfWeekMaintenanceWindow `json:"daysOfWeek,omitempty"`
 }
 
 type DaysOfWeekMaintenanceWindow struct {
@@ -206,7 +206,7 @@ type DaysOfWeekMaintenanceWindow struct {
 	Days []string `json:"days,omitempty"`
 	// Window start time, in the UTC timezone.
 	// +optional
-	StartTime *TimeOfDay `json:"start_time,omitempty"`
+	StartTime *TimeOfDay `json:"startTime,omitempty"`
 	// Window duration.
 	// +optional
 	Duration *Duration `json:"duration,omitempty"`
@@ -217,16 +217,16 @@ type MasterSpec struct {
 	//	*MasterSpec_ZonalMasterSpec
 	//	*MasterSpec_RegionalMasterSpec
 	// +kubebuilder:validation:Required
-	MasterType *MasterSpec_MasterType `json:"master_type"`
+	MasterType *MasterSpec_MasterType `json:"masterType"`
 	// Version of Kubernetes components that runs on the master.
 	// +kubebuilder:validation:Required
 	Version string `json:"version,omitempty"`
 	// Maintenance policy of the master.
 	// +optional
-	MaintenancePolicy *MasterMaintenancePolicy `json:"maintenance_policy,omitempty"`
+	MaintenancePolicy *MasterMaintenancePolicy `json:"maintenancePolicy,omitempty"`
 	// Master security groups.
 	// +optional
-	SecurityGroupIds []string `json:"security_group_ids,omitempty"`
+	SecurityGroupIds []string `json:"securityGroupIds,omitempty"`
 }
 
 type IPAllocationPolicy struct {
@@ -235,23 +235,23 @@ type IPAllocationPolicy struct {
 	// It should not overlap with any subnet in the network the Kubernetes cluster located in. Static routes will be
 	// set up for this CIDR blocks in node subnets.
 	// +kubebuilder:validation:Required
-	ClusterIpv4CidrBlock string `json:"cluster_ipv4_cidr_block,omitempty"`
+	ClusterIpv4CidrBlock string `json:"clusterIpv4CidrBlock,omitempty"`
 	// Size of the masks that are assigned for each node in the cluster.
 	//
 	// If not specified, 24 is used.
 	// +kubebuilder:validation:Required
-	NodeIpv4CidrMaskSize int64 `json:"node_ipv4_cidr_mask_size,omitempty"`
+	NodeIpv4CidrMaskSize int64 `json:"nodeIpv4CidrMaskSize,omitempty"`
 	// CIDR block. IP range Kubernetes service Kubernetes cluster IP addresses will be allocated from.
 	//
 	// It should not overlap with any subnet in the network the Kubernetes cluster located in.
 	// +kubebuilder:validation:Required
-	ServiceIpv4CidrBlock string `json:"service_ipv4_cidr_block,omitempty"`
+	ServiceIpv4CidrBlock string `json:"serviceIpv4CidrBlock,omitempty"`
 	// IPv6 range for allocating pod IP addresses.
 	// +optional
-	ClusterIpv6CidrBlock string `json:"cluster_ipv6_cidr_block,omitempty"`
+	ClusterIpv6CidrBlock string `json:"clusterIpv6CidrBlock,omitempty"`
 	// IPv6 range for allocating Kubernetes service IP addresses
 	// +optional
-	ServiceIpv6CidrBlock string `json:"service_ipv6_cidr_block,omitempty"`
+	ServiceIpv6CidrBlock string `json:"serviceIpv6CidrBlock,omitempty"`
 }
 
 type NetworkPolicy struct {
@@ -263,7 +263,7 @@ type KMSProvider struct {
 	// KMS key ID for secrets encryption.
 	// To obtain a KMS key ID use a [yandex.cloud.kms.v1.SymmetricKeyService.List] request.
 	// +optional
-	KeyId string `json:"key_id,omitempty"`
+	KeyId string `json:"keyId,omitempty"`
 }
 
 type Cluster_Cilium struct {
@@ -273,78 +273,22 @@ type Cluster_Cilium struct {
 
 type Cilium struct {
 	// +optional
-	RoutingMode string `json:"routing_mode,omitempty"`
+	RoutingMode string `json:"routingMode,omitempty"`
 }
 
 type Cluster_GatewayIpv4Address struct {
 	// Gateway IPv4 address.
 	// +optional
-	GatewayIpv4Address string `json:"gateway_ipv4_address,omitempty"`
-}
-
-// ClusterParameters are the configurable fields of a Cluster.
-type ClusterParameters struct {
-	// ID of the folder to create an instance in.
-	// To get the folder ID, use a [yandex.cloud.resourcemanager.v1.FolderService.List] request.
-	// +kubebuilder:validation:Required
-	FolderID string `json:"folder_id"`
-	// Name of the instance.
-	// +kubebuilder:validation:Required
-	Name string `json:"name"`
-	// Description of the instance.
-	// +optional
-	Description string `json:"description,omitempty"`
-	// Resource labels as `key:value` pairs.
-	// +optional
-	Labels map[string]string `json:"labels,omitempty"`
-	// ID of the availability zone where the instance resides.
-	// To get a list of available zones, use the [yandex.cloud.compute.v1.ZoneService.List] request
-	// +kubebuilder:validation:Required
-	ZoneID string `json:"zone_id,omitempty"`
-	// Name of the network.
-	// +kubebuilder:validation:Required
-	NetworkName string `json:"network_name,omitempty"`
-	// IP allocation policy of the Kubernetes cluster.
-	// +kubebuilder:validation:Required
-	MasterSpec *MasterSpec `json:"master_spec,omitempty"`
-	// IP allocation policy of the Kubernetes cluster.
-	// +optional
-	IpAllocationPolicy *IPAllocationPolicy `json:"ip_allocation_policy,omitempty"`
-	// Types that are assignable to InternetGateway:
-	//	*CreateClusterRequest_GatewayIpv4Address
-	// For no there is only one implementation of gateway
-	// +optional
-	InternetGateway *Cluster_GatewayIpv4Address `json:"internet_gateway,omitempty"`
-	// Service account to be used for provisioning Compute Cloud and VPC resources for Kubernetes cluster.
-	// Selected service account should have `edit` role on the folder where the Kubernetes cluster will be
-	// located and on the folder where selected network resides.
-	// +kubebuilder:validation:Required
-	ServiceAccountName string `json:"service_account_name,omitempty"`
-	// Service account to be used by the worker nodes of the Kubernetes cluster to access Container Registry or to push node logs and metrics.
-	// +kubebuilder:validation:Required
-	NodeServiceAccountName string `json:"node_service_account_name,omitempty"`
-	// Release channel for the master.
-	// +kubebuilder:validation:Required
-	ReleaseChannel string `json:"release_channel,omitempty"`
-	// +optional
-	NetworkPolicy *NetworkPolicy `json:"network_policy,omitempty"`
-	// KMS provider configuration.
-	// +optional
-	KmsProvider *KMSProvider `json:"kms_provider,omitempty"`
-	// Types that are assignable to NetworkImplementation:
-	//	*CreateClusterRequest_Cilium
-	// For now there is only one implementation
-	// +optional
-	NetworkImplementation *Cluster_Cilium `json:"network_implementation,omitempty"`
+	GatewayIpv4Address string `json:"gatewayIpv4Address,omitempty"`
 }
 
 type MasterUpdateSpec struct {
 	// Specification of the master update.
 	Version *UpdateVersionSpec `json:"version,omitempty"`
 	// Maintenance policy of the master.
-	MaintenancePolicy *MasterMaintenancePolicy `json:"maintenance_policy,omitempty"`
+	MaintenancePolicy *MasterMaintenancePolicy `json:"maintenancePolicy,omitempty"`
 	// Master security groups.
-	SecurityGroupIds []string `json:"security_group_ids,omitempty"`
+	SecurityGroupIds []string `json:"securityGroupIds,omitempty"`
 }
 
 type UpdateVersionSpec struct {
@@ -360,30 +304,78 @@ type Specifier struct {
 	Version string `json:"version"`
 	// Request update to the latest revision for the current version.
 	// +optional
-	LatestRevision bool `json:"latest_revision"`
+	LatestRevision bool `json:"latestRevision"`
 }
 
 // ClusterObservation are the observable fields of a Cluster.
 type ClusterObservation struct {
 	ID                   string                      `json:"ID"`
-	FolderID             string                      `json:"folder_id"`
-	CreatedAt            string                      `json:"created_at"`
+	FolderID             string                      `json:"folderId"`
+	CreatedAt            string                      `json:"createdAt"`
 	Name                 string                      `json:"name"`
 	Labels               map[string]string           `json:"labels,omitempty"`
 	Description          string                      `json:"description,omitempty"`
 	Status               string                      `json:"status,omitempty"`
 	Health               string                      `json:"health,omitempty"`
-	ServiceAccountId     string                      `json:"service_account_id,omitempty"`
-	NodeServiceAccountId string                      `json:"node_service_account_id,omitempty"`
-	InternetGateway      *Cluster_GatewayIpv4Address `json:"internet_gateway,omitempty"`
-	NetworkPolicy        *NetworkPolicy              `json:"network_policy,omitempty"`
+	ServiceAccountId     string                      `json:"serviceAccount_id,omitempty"`
+	NodeServiceAccountId string                      `json:"nodeService_account_id,omitempty"`
+	InternetGateway      *Cluster_GatewayIpv4Address `json:"internetGateway,omitempty"`
+	NetworkPolicy        *NetworkPolicy              `json:"networkPolicy,omitempty"`
 	Master               *Master                     `json:"master,omitempty"`
 }
 
 // An ClusterSpec defines the desired state of a Cluster.
 type ClusterSpec struct {
 	xpv1.ResourceSpec `json:",inline"`
-	ForProvider       ClusterParameters `json:"forProvider"`
+	// ID of the folder to create an instance in.
+	// To get the folder ID, use a [yandex.cloud.resourcemanager.v1.FolderService.List] request.
+	// +kubebuilder:validation:Required
+	FolderID string `json:"folderId"`
+	// Description of the instance.
+	// +optional
+	Description string `json:"description,omitempty"`
+	// Resource labels as `key:value` pairs.
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+	// ID of the availability zone where the instance resides.
+	// To get a list of available zones, use the [yandex.cloud.compute.v1.ZoneService.List] request
+	// +kubebuilder:validation:Required
+	ZoneID string `json:"zoneId,omitempty"`
+	// Name of the network.
+	// +kubebuilder:validation:Required
+	NetworkName string `json:"networkName,omitempty"`
+	// IP allocation policy of the Kubernetes cluster.
+	// +kubebuilder:validation:Required
+	MasterSpec *MasterSpec `json:"masterSpec,omitempty"`
+	// IP allocation policy of the Kubernetes cluster.
+	// +optional
+	IpAllocationPolicy *IPAllocationPolicy `json:"ipAllocationPolicy,omitempty"`
+	// Types that are assignable to InternetGateway:
+	//	*CreateClusterRequest_GatewayIpv4Address
+	// For no there is only one implementation of gateway
+	// +optional
+	InternetGateway *Cluster_GatewayIpv4Address `json:"internetGateway,omitempty"`
+	// Service account to be used for provisioning Compute Cloud and VPC resources for Kubernetes cluster.
+	// Selected service account should have `edit` role on the folder where the Kubernetes cluster will be
+	// located and on the folder where selected network resides.
+	// +kubebuilder:validation:Required
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+	// Service account to be used by the worker nodes of the Kubernetes cluster to access Container Registry or to push node logs and metrics.
+	// +kubebuilder:validation:Required
+	NodeServiceAccountName string `json:"nodeServiceAccountName,omitempty"`
+	// Release channel for the master.
+	// +kubebuilder:validation:Required
+	ReleaseChannel string `json:"releaseChannel,omitempty"`
+	// +optional
+	NetworkPolicy *NetworkPolicy `json:"networkPolicy,omitempty"`
+	// KMS provider configuration.
+	// +optional
+	KmsProvider *KMSProvider `json:"kmsProvider,omitempty"`
+	// Types that are assignable to NetworkImplementation:
+	//	*CreateClusterRequest_Cilium
+	// For now there is only one implementation
+	// +optional
+	NetworkImplementation *Cluster_Cilium `json:"networkImplementation,omitempty"`
 }
 
 // An ClusterStatus represents the observed state of a Cluster.
@@ -396,7 +388,6 @@ type ClusterStatus struct {
 
 // An Cluster is an API type for YC Kubernetes Cluster provider
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="YC_NAME",type="string",JSONPath=".status.atProvider.name"
 // +kubebuilder:printcolumn:name="STATUS",type="string",JSONPath=".status.atProvider.status"
 // +kubebuilder:printcolumn:name="HEALTH",type="string",JSONPath=".status.atProvider.health"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"

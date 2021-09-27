@@ -174,8 +174,8 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	// These fmt statements should be removed in the real implementation.
 	fmt.Printf("Observing: %+v", cr)
 	req := &k8s_pb.ListClustersRequest{
-		FolderId: cr.Spec.ForProvider.FolderID,
-		Filter:   sdkresolvers.CreateResolverFilter("name", cr.Spec.ForProvider.Name),
+		FolderId: cr.Spec.FolderID,
+		Filter:   sdkresolvers.CreateResolverFilter("name", cr.GetName()),
 	}
 	resp, err := c.client.List(ctx, req)
 	if err != nil {
@@ -541,41 +541,41 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	cr.Status.SetConditions(xpv1.Creating())
 
 	nreq := &vpc_pb.ListNetworksRequest{
-		FolderId: cr.Spec.ForProvider.FolderID,
-		Filter:   fmt.Sprintf("name = '%s'", cr.Spec.ForProvider.NetworkName),
+		FolderId: cr.Spec.FolderID,
+		Filter:   fmt.Sprintf("name = '%s'", cr.Spec.NetworkName),
 	}
 	nrsp, err := c.net.List(ctx, nreq)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.New(errGetNetwork)
 	}
 
-	serviceAccID, err := c.getAccID(ctx, cr.Spec.ForProvider.FolderID, cr.Spec.ForProvider.ServiceAccountName)
+	serviceAccID, err := c.getAccID(ctx, cr.Spec.FolderID, cr.Spec.ServiceAccountName)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.New(errGetServiceAcc)
 	}
 
-	nodeAccID, err := c.getAccID(ctx, cr.Spec.ForProvider.FolderID, cr.Spec.ForProvider.NodeServiceAccountName)
+	nodeAccID, err := c.getAccID(ctx, cr.Spec.FolderID, cr.Spec.NodeServiceAccountName)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.New(errGetNodeServiceAcc)
 	}
 
 	req := &k8s_pb.CreateClusterRequest{
-		FolderId:             cr.Spec.ForProvider.FolderID,
-		Name:                 cr.Spec.ForProvider.Name,
-		Description:          cr.Spec.ForProvider.Description,
-		Labels:               cr.Spec.ForProvider.Labels,
+		FolderId:             cr.Spec.FolderID,
+		Name:                 cr.GetName(),
+		Description:          cr.Spec.Description,
+		Labels:               cr.Spec.Labels,
 		NetworkId:            nrsp.Networks[0].Id,
 		ServiceAccountId:     serviceAccID,
 		NodeServiceAccountId: nodeAccID,
 	}
 	// release channel
-	if r, ok := k8s_pb.ReleaseChannel_value[strings.ToUpper(cr.Spec.ForProvider.ReleaseChannel)]; ok {
+	if r, ok := k8s_pb.ReleaseChannel_value[strings.ToUpper(cr.Spec.ReleaseChannel)]; ok {
 		req.ReleaseChannel = k8s_pb.ReleaseChannel(r)
 	} else {
 		req.ReleaseChannel = k8s_pb.ReleaseChannel_RELEASE_CHANNEL_UNSPECIFIED
 	}
 	// Fill MasterSpec, do better
-	pbMasterSpec, err := c.fillMasterSpecPb(ctx, cr.Spec.ForProvider.MasterSpec, cr.Spec.ForProvider.FolderID)
+	pbMasterSpec, err := c.fillMasterSpecPb(ctx, cr.Spec.MasterSpec, cr.Spec.FolderID)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, errCreateCluster)
 	}
@@ -583,24 +583,24 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	// IpAllocationPolicy
 	req.IpAllocationPolicy = &k8s_pb.IPAllocationPolicy{}
-	if cr.Spec.ForProvider.IpAllocationPolicy != nil {
-		req.IpAllocationPolicy.ClusterIpv4CidrBlock = cr.Spec.ForProvider.IpAllocationPolicy.ClusterIpv4CidrBlock
-		req.IpAllocationPolicy.NodeIpv4CidrMaskSize = cr.Spec.ForProvider.IpAllocationPolicy.NodeIpv4CidrMaskSize
-		req.IpAllocationPolicy.ServiceIpv4CidrBlock = cr.Spec.ForProvider.IpAllocationPolicy.ServiceIpv4CidrBlock
-		req.IpAllocationPolicy.ClusterIpv6CidrBlock = cr.Spec.ForProvider.IpAllocationPolicy.ClusterIpv6CidrBlock
-		req.IpAllocationPolicy.ServiceIpv6CidrBlock = cr.Spec.ForProvider.IpAllocationPolicy.ServiceIpv6CidrBlock
+	if cr.Spec.IpAllocationPolicy != nil {
+		req.IpAllocationPolicy.ClusterIpv4CidrBlock = cr.Spec.IpAllocationPolicy.ClusterIpv4CidrBlock
+		req.IpAllocationPolicy.NodeIpv4CidrMaskSize = cr.Spec.IpAllocationPolicy.NodeIpv4CidrMaskSize
+		req.IpAllocationPolicy.ServiceIpv4CidrBlock = cr.Spec.IpAllocationPolicy.ServiceIpv4CidrBlock
+		req.IpAllocationPolicy.ClusterIpv6CidrBlock = cr.Spec.IpAllocationPolicy.ClusterIpv6CidrBlock
+		req.IpAllocationPolicy.ServiceIpv6CidrBlock = cr.Spec.IpAllocationPolicy.ServiceIpv6CidrBlock
 	}
 
 	// internet gateway
-	if cr.Spec.ForProvider.InternetGateway != nil {
+	if cr.Spec.InternetGateway != nil {
 		req.InternetGateway = &k8s_pb.CreateClusterRequest_GatewayIpv4Address{
-			GatewayIpv4Address: cr.Spec.ForProvider.InternetGateway.GatewayIpv4Address,
+			GatewayIpv4Address: cr.Spec.InternetGateway.GatewayIpv4Address,
 		}
 	}
 	// Network policy
-	if cr.Spec.ForProvider.NetworkPolicy != nil {
+	if cr.Spec.NetworkPolicy != nil {
 		var provider k8s_pb.NetworkPolicy_Provider
-		val, ok := k8s_pb.NetworkPolicy_Provider_value[cr.Spec.ForProvider.NetworkPolicy.Provider]
+		val, ok := k8s_pb.NetworkPolicy_Provider_value[cr.Spec.NetworkPolicy.Provider]
 		if ok {
 			provider = k8s_pb.NetworkPolicy_Provider(val)
 		} else {
@@ -611,15 +611,15 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		}
 	}
 	// KMS Provider
-	if cr.Spec.ForProvider.KmsProvider != nil {
+	if cr.Spec.KmsProvider != nil {
 		req.KmsProvider = &k8s_pb.KMSProvider{
-			KeyId: cr.Spec.ForProvider.KmsProvider.KeyId,
+			KeyId: cr.Spec.KmsProvider.KeyId,
 		}
 	}
-	if cr.Spec.ForProvider.NetworkImplementation != nil {
+	if cr.Spec.NetworkImplementation != nil {
 		// for now, there is only one option and it is cilium
 		var rm k8s_pb.Cilium_RoutingMode
-		val, ok := k8s_pb.Cilium_RoutingMode_value[cr.Spec.ForProvider.NetworkImplementation.Cilium.RoutingMode]
+		val, ok := k8s_pb.Cilium_RoutingMode_value[cr.Spec.NetworkImplementation.Cilium.RoutingMode]
 		if ok {
 			rm = k8s_pb.Cilium_RoutingMode(val)
 		} else {
@@ -656,11 +656,11 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalUpdate{}, errors.Wrap(err, errGetCluster)
 	}
 
-	svcAccID, err := c.getAccID(ctx, cr.Spec.ForProvider.FolderID, cr.Spec.ForProvider.ServiceAccountName)
+	svcAccID, err := c.getAccID(ctx, cr.Spec.FolderID, cr.Spec.ServiceAccountName)
 	if err != nil {
 		return managed.ExternalUpdate{}, errors.Wrap(err, errGetServiceAcc)
 	}
-	nodeAccID, err := c.getAccID(ctx, cr.Spec.ForProvider.FolderID, cr.Spec.ForProvider.NodeServiceAccountName)
+	nodeAccID, err := c.getAccID(ctx, cr.Spec.FolderID, cr.Spec.NodeServiceAccountName)
 	if err != nil {
 		return managed.ExternalUpdate{}, errors.Wrap(err, errGetNodeServiceAcc)
 	}
@@ -670,18 +670,18 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	needUpdate := false
 	paths := []string{}
-	if cr.Status.AtProvider.Name != cr.Spec.ForProvider.Name {
-		ureq.Name = cr.Spec.ForProvider.Name
+	if cr.Status.AtProvider.Name != cr.GetName() {
+		ureq.Name = cr.GetName()
 		needUpdate = true
 		paths = append(paths, "name")
 	}
-	if cr.Status.AtProvider.Description != cr.Spec.ForProvider.Description {
-		ureq.Description = cr.Spec.ForProvider.Description
+	if cr.Status.AtProvider.Description != cr.Spec.Description {
+		ureq.Description = cr.Spec.Description
 		needUpdate = true
 		paths = append(paths, "description")
 	}
-	if !reflect.DeepEqual(cr.Status.AtProvider.Labels, cr.Spec.ForProvider.Labels) {
-		ureq.Labels = cr.Spec.ForProvider.Labels
+	if !reflect.DeepEqual(cr.Status.AtProvider.Labels, cr.Spec.Labels) {
+		ureq.Labels = cr.Spec.Labels
 		needUpdate = true
 		paths = append(paths, "labels")
 	}
@@ -695,19 +695,19 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		needUpdate = true
 		paths = append(paths, "node_service_account_id")
 	}
-	if !reflect.DeepEqual(cr.Status.AtProvider.InternetGateway, cr.Spec.ForProvider.InternetGateway) {
-		if cr.Spec.ForProvider.InternetGateway != nil {
+	if !reflect.DeepEqual(cr.Status.AtProvider.InternetGateway, cr.Spec.InternetGateway) {
+		if cr.Spec.InternetGateway != nil {
 			ureq.InternetGateway = &k8s_pb.UpdateClusterRequest_GatewayIpv4Address{
-				GatewayIpv4Address: cr.Spec.ForProvider.InternetGateway.GatewayIpv4Address,
+				GatewayIpv4Address: cr.Spec.InternetGateway.GatewayIpv4Address,
 			}
 			needUpdate = true
 			paths = append(paths, "internet_gateway")
 		}
 	}
-	if !reflect.DeepEqual(cr.Status.AtProvider.NetworkPolicy, cr.Spec.ForProvider.NetworkPolicy) {
-		if cr.Spec.ForProvider.NetworkPolicy != nil {
+	if !reflect.DeepEqual(cr.Status.AtProvider.NetworkPolicy, cr.Spec.NetworkPolicy) {
+		if cr.Spec.NetworkPolicy != nil {
 			var p k8s_pb.NetworkPolicy_Provider
-			if v, ok := k8s_pb.NetworkPolicy_Provider_value[cr.Spec.ForProvider.NetworkPolicy.Provider]; ok {
+			if v, ok := k8s_pb.NetworkPolicy_Provider_value[cr.Spec.NetworkPolicy.Provider]; ok {
 				p = k8s_pb.NetworkPolicy_Provider(v)
 			} else {
 				p = k8s_pb.NetworkPolicy_PROVIDER_UNSPECIFIED
@@ -719,19 +719,19 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 			paths = append(paths, "network_policy")
 		}
 	}
-	if !reflect.DeepEqual(cr.Status.AtProvider.Master.MaintenancePolicy, cr.Spec.ForProvider.MasterSpec.MaintenancePolicy) ||
-		!reflect.DeepEqual(cr.Status.AtProvider.Master.SecurityGroupIds, cr.Spec.ForProvider.MasterSpec.SecurityGroupIds) ||
-		cr.Status.AtProvider.Master.Version != cr.Spec.ForProvider.MasterSpec.Version {
+	if !reflect.DeepEqual(cr.Status.AtProvider.Master.MaintenancePolicy, cr.Spec.MasterSpec.MaintenancePolicy) ||
+		!reflect.DeepEqual(cr.Status.AtProvider.Master.SecurityGroupIds, cr.Spec.MasterSpec.SecurityGroupIds) ||
+		cr.Status.AtProvider.Master.Version != cr.Spec.MasterSpec.Version {
 
 		ureq.MasterSpec = &k8s_pb.MasterUpdateSpec{
 			Version: &k8s_pb.UpdateVersionSpec{
 				// Support only _Version for now
 				Specifier: &k8s_pb.UpdateVersionSpec_Version{
-					Version: cr.Spec.ForProvider.MasterSpec.Version,
+					Version: cr.Spec.MasterSpec.Version,
 				},
 			},
-			SecurityGroupIds:  cr.Spec.ForProvider.MasterSpec.SecurityGroupIds,
-			MaintenancePolicy: fillMaintenancePolicyPb(ctx, cr.Spec.ForProvider.MasterSpec),
+			SecurityGroupIds:  cr.Spec.MasterSpec.SecurityGroupIds,
+			MaintenancePolicy: fillMaintenancePolicyPb(ctx, cr.Spec.MasterSpec),
 		}
 		needUpdate = true
 		paths = append(paths, "master_spec")

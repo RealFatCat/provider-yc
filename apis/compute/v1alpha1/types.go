@@ -1,19 +1,3 @@
-/*
-Copyright 2020 The Crossplane Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package v1alpha1
 
 import (
@@ -50,15 +34,15 @@ const (
 )
 
 type DiskPlacementPolicy struct {
-	PlacementGroupID string `json:"placement_group_id,omitempty"`
+	PlacementGroupID string `json:"placementGroupId,omitempty"`
 }
 
 type SourceSpec struct {
 	// Should be one of, as I understand
 	// +optional
-	ImageID string `json:"image_id,omitempty"`
+	ImageID string `json:"imageId,omitempty"`
 	// +optional
-	SnapshotID string `json:"snapshot_id,omitempty"`
+	SnapshotID string `json:"snapshotId,omitempty"`
 }
 
 type DiskSpec struct {
@@ -73,15 +57,15 @@ type DiskSpec struct {
 	// ID of the disk type.
 	// To get a list of available disk types, use the [yandex.cloud.compute.v1.DiskTypeService.List] request.
 	// +optional
-	TypeId string `json:"type_id,omitempty"`
+	TypeId string `json:"typeId,omitempty"`
 	// Size of the disk, specified in bytes.
 	Size int64 `json:"size,omitempty"`
 	// Block size of the disk, specified in bytes. The default is 4096.
 	// +optional
-	BlockSize int64 `json:"block_size,omitempty"`
+	BlockSize int64 `json:"blockSize,omitempty"`
 	// Placement policy configuration.
 	// +optional
-	DiskPlacementPolicy *DiskPlacementPolicy `json:"disk_placement_policy,omitempty"`
+	DiskPlacementPolicy *DiskPlacementPolicy `json:"diskPlacementPolicy,omitempty"`
 	// Types that are assignable to Source:
 	//  *AttachedDiskSpec_DiskSpec_ImageId
 	//  *AttachedDiskSpec_DiskSpec_SnapshotId
@@ -97,10 +81,10 @@ type AttachedDiskSpec struct {
 	// This value can be used to reference the device for mounting, resizing, and so on, from within the instance.
 	// If not specified, a random value will be generated.
 	// +optional
-	DeviceName string `json:"device_name,omitempty"`
+	DeviceName string `json:"deviceName,omitempty"`
 	// Specifies whether the disk will be auto-deleted when the instance is deleted.
 	// +optional
-	AutoDelete bool `json:"auto_delete,omitempty"`
+	AutoDelete bool `json:"autoDelete,omitempty"`
 	// Types that are assignable to Disk:
 	//	*AttachedDiskSpec_DiskSpec_
 	//	*AttachedDiskSpec_DiskId
@@ -113,7 +97,7 @@ type DnsRecord struct {
 	// Note that if `fqdn' has no trailing '.', it is specified relative to the zone (@see dns_zone_id).
 	Fqdn string `json:"fqdn,omitempty"`
 	// DNS zone id for the record (optional, if not set, some private zone is used).
-	DnsZoneId string `json:"dns_zone_id,omitempty"`
+	DnsZoneId string `json:"dnsZoneId,omitempty"`
 	// DNS record ttl (optional, if not set, a reasonable default is used.)
 	Ttl int64 `json:"ttl,omitempty"`
 	// When true, indicates there is a corresponding auto-created PTR DNS record.
@@ -125,10 +109,10 @@ type OneToOneNatSpec struct {
 	// +optional
 	Address string `json:"address,omitempty"`
 	// IP version for the external IP address.
-	IpVersion string `json:"ip_version,omitempty"`
+	IpVersion string `json:"ipVersion,omitempty"`
 	// External DNS configuration
 	// +optional
-	DnsRecords []*DnsRecord `json:"dns_records,omitempty"`
+	DnsRecords []*DnsRecord `json:"dnsRecords,omitempty"`
 }
 
 type PrimaryAddressSpec struct {
@@ -139,10 +123,10 @@ type PrimaryAddressSpec struct {
 	// An external IP address configuration.
 	// If not specified, then this instance will have no external internet access.
 	// +optional
-	OneToOneNatSpec *OneToOneNatSpec `json:"one_to_one_nat"`
+	OneToOneNatSpec *OneToOneNatSpec `json:"oneToOneNat"`
 	// Internal DNS configuration
 	// +optional
-	DnsRecords []*DnsRecord `json:"dns_records,omitempty"`
+	DnsRecords []*DnsRecord `json:"dnsRecords,omitempty"`
 }
 
 type SchedulingPolicy struct {
@@ -164,34 +148,49 @@ type PlacementPolicy_HostAffinityRule struct {
 
 type PlacementPolicy struct {
 	// Placement group ID.
-	PlacementGroupID string `json:"placement_group_id,omitempty"`
+	PlacementGroupID string `json:"placementGroupId,omitempty"`
 	// List of affinity rules. Scheduler will attempt to allocate instances according to order of rules.
-	HostAffinityRules []*PlacementPolicy_HostAffinityRule `json:"host_affinity_rules,omitempty"`
+	HostAffinityRules []*PlacementPolicy_HostAffinityRule `json:"hostAffinityRules,omitempty"`
 }
 
 type NetworkInterfaceSpec struct {
 	// +optional
-	SubnetID   string `json:"subnet_id"`
-	SubnetName string `json:"subnet_name"`
+	SubnetID   string `json:"subnetId"`
+	SubnetName string `json:"subnetName"`
 	// Primary IPv4 address that is assigned to the instance for this network interface.
 	// +optional
-	PrimaryV4Address *PrimaryAddressSpec `json:"primary_v4_address,omitempty"`
+	PrimaryV4Address *PrimaryAddressSpec `json:"primaryV4address,omitempty"`
 	// Primary IPv6 address that is assigned to the instance for this network interface. IPv6 not available yet.
 	// +optional
-	PrimaryV6Address *PrimaryAddressSpec `json:"primary_v6_address,omitempty"`
+	PrimaryV6Address *PrimaryAddressSpec `json:"primaryV6address,omitempty"`
 	// ID's of security groups attached to the interface
 	// +optional
-	SecurityGroupIds []string `json:"security_group_ids,omitempty"`
+	SecurityGroupIds []string `json:"securityGroupIds,omitempty"`
 }
 
-// InstanceParameters are the configurable fields of a Instance.
-// This looks bad. Try use pb from go-sdk
-type InstanceParameters struct {
+// InstanceObservation are the observable fields of a Instance.
+type InstanceObservation struct {
+	ID               string            `json:"ID"`
+	FolderID         string            `json:"folderId"`
+	CreatedAt        string            `json:"createdAt"`
+	Name             string            `json:"name"`
+	Status           string            `json:"status"`
+	Labels           map[string]string `json:"labels,omitempty"`
+	Description      string            `json:"description,omitempty"`
+	Metadata         map[string]string `json:"metadata,omitempty"`
+	PlatformID       string            `json:"platformId,omitempty"`
+	ServiceAccountID string            `json:"serviceAccount_id,omitempty"`
+	Resources        *ResourcesSpec    `json:"resources,omitempty"`
+	NetworkSettings  *NetworkSettings  `json:"networkSettings,omitempty"`
+	PlacementPolicy  *PlacementPolicy  `json:"placementPolicy,omitempty"`
+}
+
+// An InstanceSpec defines the desired state of a Instance.
+type InstanceSpec struct {
+	xpv1.ResourceSpec `json:",inline"`
 	// ID of the folder to create an instance in.
 	// To get the folder ID, use a [yandex.cloud.resourcemanager.v1.FolderService.List] request.
-	FolderID string `json:"folder_id"`
-	// Name of the instance.
-	Name string `json:"name"`
+	FolderID string `json:"folderId"`
 	// Description of the instance.
 	// +optional
 	Description string `json:"description,omitempty"`
@@ -200,14 +199,14 @@ type InstanceParameters struct {
 	Labels map[string]string `json:"labels,omitempty"`
 	// ID of the availability zone where the instance resides.
 	// To get a list of available zones, use the [yandex.cloud.compute.v1.ZoneService.List] request
-	ZoneID string `json:"zone_id,omitempty"`
+	ZoneID string `json:"zoneId,omitempty"`
 	// ID of the hardware platform configuration for the instance.
 	// This field affects the available values in [resources_spec] field.
 	//
 	// Platforms allows you to create various types of instances: with a large amount of memory,
 	// with a large number of cores, with a burstable performance.
 	// For more information, see [Platforms](/docs/compute/concepts/vm-platforms).
-	PlatformID string `json:"platform_id"`
+	PlatformID string `json:"platformId"`
 	// Computing resources of the instance, such as the amount of memory and number of cores.
 	// To get a list of available values, see [Levels of core performance](/docs/compute/concepts/performance-levels).
 	Resources *ResourcesSpec `json:"resources"` // was pointer
@@ -222,14 +221,14 @@ type InstanceParameters struct {
 	// +optional
 	Metadata map[string]string `json:"metadata,omitempty"`
 	// Boot disk to attach to the instance.
-	BootDiskSpec *AttachedDiskSpec `json:"boot_disk,omitempty"`
+	BootDiskSpec *AttachedDiskSpec `json:"bootDisk,omitempty"`
 	// Array of secondary disks to attach to the instance.
 	// +optional
-	SecondaryDisks []*AttachedDiskSpec `json:"secondary_disks,omitempty"`
+	SecondaryDisks []*AttachedDiskSpec `json:"secondaryDisks,omitempty"`
 	// Network configuration for the instance. Specifies how the network interface is configured
 	// to interact with other services on the internal network and on the internet.
 	// Currently only one network interface is supported per instance.
-	NetworkInterfaces []*NetworkInterfaceSpec `json:"network_interfaces,omitempty"`
+	NetworkInterfaces []*NetworkInterfaceSpec `json:"networkInterfaces,omitempty"`
 	// Host name for the instance.
 	// This field is used to generate the [yandex.cloud.compute.v1.Instance.fqdn] value.
 	// The host name must be unique within the network and region.
@@ -239,40 +238,17 @@ type InstanceParameters struct {
 	Hostname string `json:"hostname,omitempty"`
 	// Scheduling policy configuration.
 	// +optional
-	SchedulingPolicy *SchedulingPolicy `json:"scheduling_policy,omitempty"`
+	SchedulingPolicy *SchedulingPolicy `json:"schedulingPolicy,omitempty"`
 	// ID of the service account to use for [authentication inside the instance](/docs/compute/operations/vm-connect/auth-inside-vm).
 	// To get the service account ID, use a [yandex.cloud.iam.v1.ServiceAccountService.List] request.
 	// +optional
-	ServiceAccountID string `json:"service_account_id,omitempty"`
+	ServiceAccountID string `json:"serviceAccountId,omitempty"`
 	// Network settings.
 	// +optional
-	NetworkSettings *NetworkSettings `json:"network_settings,omitempty"`
+	NetworkSettings *NetworkSettings `json:"networkSettings,omitempty"`
 	// Placement policy configuration.
 	// +optional
-	PlacementPolicy *PlacementPolicy `json:"placement_policy,omitempty"`
-}
-
-// InstanceObservation are the observable fields of a Instance.
-type InstanceObservation struct {
-	ID               string            `json:"ID"`
-	FolderID         string            `json:"folder_id"`
-	CreatedAt        string            `json:"created_at"`
-	Name             string            `json:"name"`
-	Status           string            `json:"status"`
-	Labels           map[string]string `json:"labels,omitempty"`
-	Description      string            `json:"description,omitempty"`
-	Metadata         map[string]string `json:"metadata,omitempty"`
-	PlatformID       string            `json:"platform_id,omitempty"`
-	ServiceAccountID string            `json:"service_account_id,omitempty"`
-	Resources        *ResourcesSpec    `json:"resources,omitempty"`
-	NetworkSettings  *NetworkSettings  `json:"network_settings,omitempty"`
-	PlacementPolicy  *PlacementPolicy  `json:"placement_policy,omitempty"`
-}
-
-// An InstanceSpec defines the desired state of a Instance.
-type InstanceSpec struct {
-	xpv1.ResourceSpec `json:",inline"`
-	ForProvider       InstanceParameters `json:"forProvider"`
+	PlacementPolicy *PlacementPolicy `json:"placementPolicy,omitempty"`
 }
 
 // An InstanceStatus represents the observed state of a Instance.
@@ -287,7 +263,7 @@ type InstanceStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="ID",type="string",JSONPath=".status.atProvider.ID"
 // +kubebuilder:printcolumn:name="YC_NAME",type="string",JSONPath=".status.atProvider.name"
-// +kubebuilder:printcolumn:name="FOLDER_ID",type="string",JSONPath=".status.atProvider.folder_id"
+// +kubebuilder:printcolumn:name="FOLDER_ID",type="string",JSONPath=".status.atProvider.folderId"
 // +kubebuilder:printcolumn:name="STATUS",type="string",JSONPath=".status.atProvider.status"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:scope=Cluster,categories={crossplane,managed,yc}

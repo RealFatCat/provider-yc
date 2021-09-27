@@ -161,7 +161,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 
 	// These fmt statements should be removed in the real implementation.
 	fmt.Printf("Observing: j%+v\n", cr)
-	req := &compute_pb.ListInstancesRequest{FolderId: cr.Spec.ForProvider.FolderID, Filter: fmt.Sprintf("name = '%s'", cr.Spec.ForProvider.Name)}
+	req := &compute_pb.ListInstancesRequest{FolderId: cr.Spec.FolderID, Filter: fmt.Sprintf("name = '%s'", cr.GetName())}
 
 	resp, err := c.instance.List(ctx, req)
 	if err != nil {
@@ -396,58 +396,58 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	fmt.Printf("Creating: %+v", cr)
 	cr.Status.SetConditions(xpv1.Creating())
 
-	err := getSubnetIDs(ctx, c.subnet, cr.Spec.ForProvider.FolderID, cr.Spec.ForProvider.NetworkInterfaces)
+	err := getSubnetIDs(ctx, c.subnet, cr.Spec.FolderID, cr.Spec.NetworkInterfaces)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, errGetNetwork)
 	}
 
 	// Fill Resources, required for creation
-	if cr.Spec.ForProvider.Resources == nil {
+	if cr.Spec.Resources == nil {
 		return managed.ExternalCreation{}, errors.Wrap(fmt.Errorf("resources"), errRequiredField)
 	}
 	resources := &compute_pb.ResourcesSpec{
-		Cores:        cr.Spec.ForProvider.Resources.Cores,
-		Memory:       cr.Spec.ForProvider.Resources.Memory,
-		CoreFraction: cr.Spec.ForProvider.Resources.CoreFraction,
-		Gpus:         cr.Spec.ForProvider.Resources.Gpus,
+		Cores:        cr.Spec.Resources.Cores,
+		Memory:       cr.Spec.Resources.Memory,
+		CoreFraction: cr.Spec.Resources.CoreFraction,
+		Gpus:         cr.Spec.Resources.Gpus,
 	}
 	req := &compute_pb.CreateInstanceRequest{
 		// To get the folder ID, use a [yandex.cloud.resourcemanager.v1.FolderService.List] request.
-		FolderId: cr.Spec.ForProvider.FolderID,
+		FolderId: cr.Spec.FolderID,
 		// The name must be unique within the folder.
-		Name: cr.Spec.ForProvider.Name,
+		Name: cr.GetName(),
 		// Description of the network.
-		Description: cr.Spec.ForProvider.Description,
+		Description: cr.Spec.Description,
 		// Resource labels as `` key:value `` pairs.
-		Labels:     cr.Spec.ForProvider.Labels,
-		PlatformId: cr.Spec.ForProvider.PlatformID,
+		Labels:     cr.Spec.Labels,
+		PlatformId: cr.Spec.PlatformID,
 		// ID of the availability zone where the instance resides.
 		// To get a list of available zones, use the [yandex.cloud.compute.v1.ZoneService.List] request.
-		ZoneId:           cr.Spec.ForProvider.ZoneID,
+		ZoneId:           cr.Spec.ZoneID,
 		ResourcesSpec:    resources,
-		Metadata:         cr.Spec.ForProvider.Metadata,
-		Hostname:         cr.Spec.ForProvider.Hostname,
-		ServiceAccountId: cr.Spec.ForProvider.ServiceAccountID,
+		Metadata:         cr.Spec.Metadata,
+		Hostname:         cr.Spec.Hostname,
+		ServiceAccountId: cr.Spec.ServiceAccountID,
 	}
 
 	// Fill NetworkSettings
-	req.NetworkSettings = fillNetworkSettingsPb(cr.Spec.ForProvider.NetworkSettings)
+	req.NetworkSettings = fillNetworkSettingsPb(cr.Spec.NetworkSettings)
 
 	// Fill PlacementPolicy
-	req.PlacementPolicy = fillPlacementPolicyPb(cr.Spec.ForProvider.PlacementPolicy)
+	req.PlacementPolicy = fillPlacementPolicyPb(cr.Spec.PlacementPolicy)
 
 	// Fill SchedulingPolicy
-	if cr.Spec.ForProvider.SchedulingPolicy != nil {
+	if cr.Spec.SchedulingPolicy != nil {
 		sp := &compute_pb.SchedulingPolicy{
-			Preemptible: cr.Spec.ForProvider.SchedulingPolicy.Preemptible,
+			Preemptible: cr.Spec.SchedulingPolicy.Preemptible,
 		}
 		req.SchedulingPolicy = sp
 	}
 
 	// Fill NetworkInterfaceSpecs
-	if len(cr.Spec.ForProvider.NetworkInterfaces) != 0 {
+	if len(cr.Spec.NetworkInterfaces) != 0 {
 		nis := []*compute_pb.NetworkInterfaceSpec{}
-		for _, iface := range cr.Spec.ForProvider.NetworkInterfaces {
+		for _, iface := range cr.Spec.NetworkInterfaces {
 
 			var pr4a *compute_pb.PrimaryAddressSpec
 
@@ -490,20 +490,20 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	}
 
 	// Fill BootDiskSpec, required on creation
-	if cr.Spec.ForProvider.BootDiskSpec == nil {
+	if cr.Spec.BootDiskSpec == nil {
 		return managed.ExternalCreation{}, errors.Wrap(fmt.Errorf("boot_disk"), errRequiredField)
 	}
 
-	bds, err := formDiskPb(cr.Spec.ForProvider.BootDiskSpec)
+	bds, err := formDiskPb(cr.Spec.BootDiskSpec)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, errCreateInstance)
 	}
 	req.BootDiskSpec = bds
 
 	// Fill SecondaryDiskSpecs
-	if len(cr.Spec.ForProvider.SecondaryDisks) != 0 {
+	if len(cr.Spec.SecondaryDisks) != 0 {
 		sds := []*compute_pb.AttachedDiskSpec{}
-		for _, diskSpec := range cr.Spec.ForProvider.SecondaryDisks {
+		for _, diskSpec := range cr.Spec.SecondaryDisks {
 			bds, err := formDiskPb(diskSpec)
 			if err != nil {
 				return managed.ExternalCreation{}, errors.Wrap(err, errCreateInstance)
@@ -531,17 +531,17 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	fmt.Printf("update %+v", cr)
 
 	// if coreFractions set to 0 in spec, yc sets it to 100
-	if cr.Spec.ForProvider.Resources.CoreFraction == 0 {
-		cr.Spec.ForProvider.Resources.CoreFraction = 100
+	if cr.Spec.Resources.CoreFraction == 0 {
+		cr.Spec.Resources.CoreFraction = 100
 	}
 	resources := &compute_pb.ResourcesSpec{
-		Cores:  cr.Spec.ForProvider.Resources.Cores,
-		Memory: cr.Spec.ForProvider.Resources.Memory,
-		Gpus:   cr.Spec.ForProvider.Resources.Gpus,
+		Cores:  cr.Spec.Resources.Cores,
+		Memory: cr.Spec.Resources.Memory,
+		Gpus:   cr.Spec.Resources.Gpus,
 	}
 
-	ns := fillNetworkSettingsPb(cr.Spec.ForProvider.NetworkSettings)
-	pp := fillPlacementPolicyPb(cr.Spec.ForProvider.PlacementPolicy)
+	ns := fillNetworkSettingsPb(cr.Spec.NetworkSettings)
+	pp := fillPlacementPolicyPb(cr.Spec.PlacementPolicy)
 
 	ureq := &compute_pb.UpdateInstanceRequest{
 		InstanceId: cr.Status.AtProvider.ID,
@@ -549,37 +549,37 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	needUpdate := false
 	paths := []string{}
-	if cr.Status.AtProvider.Name != cr.Spec.ForProvider.Name {
-		ureq.Name = cr.Spec.ForProvider.Name
+	if cr.Status.AtProvider.Name != cr.GetName() {
+		ureq.Name = cr.GetName()
 		needUpdate = true
 		paths = append(paths, "name")
 	}
-	if cr.Status.AtProvider.Description != cr.Spec.ForProvider.Description {
-		ureq.Description = cr.Spec.ForProvider.Description
+	if cr.Status.AtProvider.Description != cr.Spec.Description {
+		ureq.Description = cr.Spec.Description
 		needUpdate = true
 		paths = append(paths, "description")
 	}
-	if !reflect.DeepEqual(cr.Status.AtProvider.Labels, cr.Spec.ForProvider.Labels) {
-		ureq.Labels = cr.Spec.ForProvider.Labels
+	if !reflect.DeepEqual(cr.Status.AtProvider.Labels, cr.Spec.Labels) {
+		ureq.Labels = cr.Spec.Labels
 		needUpdate = true
 		paths = append(paths, "labels")
 	}
-	if !reflect.DeepEqual(cr.Status.AtProvider.Metadata, cr.Spec.ForProvider.Metadata) {
-		ureq.Metadata = cr.Spec.ForProvider.Metadata
+	if !reflect.DeepEqual(cr.Status.AtProvider.Metadata, cr.Spec.Metadata) {
+		ureq.Metadata = cr.Spec.Metadata
 		needUpdate = true
 		paths = append(paths, "metadata")
 	}
-	if cr.Status.AtProvider.PlatformID != cr.Spec.ForProvider.PlatformID {
-		ureq.PlatformId = cr.Spec.ForProvider.PlatformID
+	if cr.Status.AtProvider.PlatformID != cr.Spec.PlatformID {
+		ureq.PlatformId = cr.Spec.PlatformID
 		needUpdate = true
 		paths = append(paths, "platform_id")
 	}
-	if cr.Status.AtProvider.ServiceAccountID != cr.Spec.ForProvider.ServiceAccountID {
-		ureq.ServiceAccountId = cr.Spec.ForProvider.ServiceAccountID
+	if cr.Status.AtProvider.ServiceAccountID != cr.Spec.ServiceAccountID {
+		ureq.ServiceAccountId = cr.Spec.ServiceAccountID
 		needUpdate = true
 		paths = append(paths, "service_account_id")
 	}
-	if !reflect.DeepEqual(cr.Status.AtProvider.Resources, cr.Spec.ForProvider.Resources) {
+	if !reflect.DeepEqual(cr.Status.AtProvider.Resources, cr.Spec.Resources) {
 		// samodeyatelnost, TODO: update list of valid statuses
 		if cr.Status.AtProvider.Status != compute_pb.Instance_STOPPED.String() {
 			return managed.ExternalUpdate{}, errors.Wrap(fmt.Errorf("status: %s, should be %s", cr.Status.AtProvider.Status, compute_pb.Instance_STOPPED.String()), errUpdateInstance)
@@ -588,15 +588,15 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		needUpdate = true
 		paths = append(paths, "resources_spec")
 	}
-	if cr.Spec.ForProvider.NetworkSettings != nil {
-		if !reflect.DeepEqual(cr.Status.AtProvider.NetworkSettings, cr.Spec.ForProvider.NetworkSettings) {
+	if cr.Spec.NetworkSettings != nil {
+		if !reflect.DeepEqual(cr.Status.AtProvider.NetworkSettings, cr.Spec.NetworkSettings) {
 			ureq.NetworkSettings = ns
 			needUpdate = true
 			paths = append(paths, "network_settings")
 		}
 	}
-	if cr.Spec.ForProvider.PlacementPolicy != nil {
-		if !reflect.DeepEqual(cr.Status.AtProvider.PlacementPolicy, cr.Spec.ForProvider.PlacementPolicy) {
+	if cr.Spec.PlacementPolicy != nil {
+		if !reflect.DeepEqual(cr.Status.AtProvider.PlacementPolicy, cr.Spec.PlacementPolicy) {
 			ureq.PlacementPolicy = pp
 			needUpdate = true
 			paths = append(paths, "placement_policy")

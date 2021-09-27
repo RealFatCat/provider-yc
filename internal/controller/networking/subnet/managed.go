@@ -134,31 +134,14 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 		return nil, errors.Wrap(err, "could not create SDK")
 	}
 	cl := sdk.VPC().Subnet()
-	n := sdk.VPC().Network()
 	fmt.Println("Connecting done")
-	return &external{subn: cl, net: n}, nil
+	return &external{subn: cl}, nil
 }
 
 // An ExternalClient observes, then either creates, updates, or deletes an
 // external resource to ensure it reflects the managed resource's desired state.
 type external struct {
 	subn *vpc.SubnetServiceClient
-	net  *vpc.NetworkServiceClient
-}
-
-func getNetID(ctx context.Context, client *vpc.NetworkServiceClient, folderID, networkName string) (string, error) {
-	nreq := &vpc_pb.ListNetworksRequest{
-		FolderId: folderID,
-		Filter:   fmt.Sprintf("name = '%s'", networkName),
-	}
-	nrsp, err := client.List(ctx, nreq)
-	if err != nil {
-		return "", errors.Wrap(err, errGetNetwork)
-	}
-	if len(nrsp.Networks) != 1 {
-		return "", errors.Wrap(fmt.Errorf("%s not found, or multiple values recived", networkName), errGetNetwork)
-	}
-	return nrsp.Networks[0].Id, nil
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
@@ -169,39 +152,23 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 
 	// These fmt statements should be removed in the real implementation.
 	fmt.Printf("Observing: %+v", cr)
-	req := &vpc_pb.ListSubnetsRequest{FolderId: cr.Spec.ForProvider.FolderID, Filter: fmt.Sprintf("name = '%s'", cr.Spec.ForProvider.Name)}
+	req := &vpc_pb.ListSubnetsRequest{FolderId: cr.Spec.FolderID, Filter: fmt.Sprintf("name = '%s'", cr.GetName())}
 	resp, err := c.subn.List(ctx, req)
 	if err != nil {
 		return managed.ExternalObservation{}, errors.Wrap(err, errGetSubnet)
 	}
 	if len(resp.Subnets) == 0 {
 		return managed.ExternalObservation{
-			// Return false when the external resource does not exist. This lets
-			// the managed resource reconciler know that it needs to call Create to
-			// (re)create the resource, or that it has successfully been deleted.
 			ResourceExists: false,
 
-			// Return false when the external resource exists, but it not up to date
-			// with the desired managed resource state. This lets the managed
-			// resource reconciler know that it needs to call Update.
 			// ResourceUpToDate: true,
-
-			// Return any details that may be required to connect to the external
-			// resource. These will be stored as the connection secret.
 			ConnectionDetails: managed.ConnectionDetails{},
 		}, nil
 	}
 
 	sn := resp.Subnets[0]
-	n, err := c.net.Get(ctx, &vpc_pb.GetNetworkRequest{NetworkId: sn.NetworkId})
-	if err != nil {
-		return managed.ExternalObservation{}, errors.Wrap(err, errGetNetwork)
-	}
-	var nname string
-	if n != nil {
-		nname = n.Name
-	}
 
+	// TODO: Move to function
 	cr.Status.AtProvider.ID = sn.Id
 	cr.Status.AtProvider.FolderID = sn.FolderId
 	cr.Status.AtProvider.CreatedAt = sn.CreatedAt.String()
@@ -209,7 +176,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	cr.Status.AtProvider.Description = sn.Description
 	cr.Status.AtProvider.Labels = sn.Labels
 	cr.Status.AtProvider.NetworkID = sn.NetworkId
-	cr.Status.AtProvider.NetworkName = nname
+	cr.Status.AtProvider.NetworkName = cr.Spec.NetworkIDRef.Name
 	cr.Status.AtProvider.ZoneID = sn.ZoneId
 	cr.Status.AtProvider.V4CidrBlocks = sn.V4CidrBlocks
 	cr.Status.AtProvider.V6CidrBlocks = sn.V6CidrBlocks
@@ -219,18 +186,8 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	cr.SetConditions(xpv1.Available())
 
 	return managed.ExternalObservation{
-		// Return false when the external resource does not exist. This lets
-		// the managed resource reconciler know that it needs to call Create to
-		// (re)create the resource, or that it has successfully been deleted.
-		ResourceExists: true,
-
-		// Return false when the external resource exists, but it not up to date
-		// with the desired managed resource state. This lets the managed
-		// resource reconciler know that it needs to call Update.
-		// ResourceUpToDate: true,
-
-		// Return any details that may be required to connect to the external
-		// resource. These will be stored as the connection secret.
+		ResourceExists:    true,
+		ResourceUpToDate:  true,
 		ConnectionDetails: managed.ConnectionDetails{},
 	}, nil
 }
@@ -244,40 +201,35 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	fmt.Printf("Creating: %+v", cr)
 	cr.Status.SetConditions(xpv1.Creating())
 
-	netID, err := getNetID(ctx, c.net, cr.Spec.ForProvider.FolderID, cr.Spec.ForProvider.NetworkName)
-	if err != nil {
-		return managed.ExternalCreation{}, errors.Wrap(err, errGetNetwork)
-	}
-
 	req := &vpc_pb.CreateSubnetRequest{
 		// To get the folder ID, use a [yandex.cloud.resourcemanager.v1.FolderService.List] request.
-		FolderId: cr.Spec.ForProvider.FolderID,
+		FolderId: cr.Spec.FolderID,
 		// Name of the subnet.
 		// The name must be unique within the folder.
-		Name: cr.Spec.ForProvider.Name,
+		Name: cr.GetName(),
 		// Description of the network.
-		Description: cr.Spec.ForProvider.Description,
+		Description: cr.Spec.Description,
 		// Resource labels as `` key:value `` pairs.
-		Labels: cr.Spec.ForProvider.Labels,
+		Labels: cr.Spec.Labels,
 		// ID of the network to create subnet in.
-		NetworkId: netID,
+		NetworkId: cr.Spec.NetworkID,
 		// ID of the availability zone where the subnet resides.
 		// To get a list of available zones, use the [yandex.cloud.compute.v1.ZoneService.List] request.
-		ZoneId: cr.Spec.ForProvider.ZoneID,
+		ZoneId: cr.Spec.ZoneID,
 		// CIDR block.
 		// The range of internal addresses that are defined for this subnet.
 		// This field can be set only at Subnet resource creation time and cannot be changed.
 		// For example, 10.0.0.0/22 or 192.168.0.0/24.
 		// Minimum subnet size is /28, maximum subnet size is /16.
-		V4CidrBlocks: cr.Spec.ForProvider.V4CidrBlocks,
+		V4CidrBlocks: cr.Spec.V4CidrBlocks,
 		// ID of route table the subnet is linked to.
-		RouteTableId: cr.Spec.ForProvider.RouteTableID,
+		RouteTableId: cr.Spec.RouteTableID,
 	}
-	if cr.Spec.ForProvider.DhcpOptions != nil {
+	if cr.Spec.DhcpOptions != nil {
 		req.DhcpOptions = &vpc_pb.DhcpOptions{
-			DomainNameServers: cr.Spec.ForProvider.DhcpOptions.DomainNameServers,
-			DomainName:        cr.Spec.ForProvider.DhcpOptions.DomainName,
-			NtpServers:        cr.Spec.ForProvider.DhcpOptions.NtpServers,
+			DomainNameServers: cr.Spec.DhcpOptions.DomainNameServers,
+			DomainName:        cr.Spec.DhcpOptions.DomainName,
+			NtpServers:        cr.Spec.DhcpOptions.NtpServers,
 		}
 	}
 	if _, err := c.subn.Create(ctx, req); err != nil {
@@ -296,34 +248,30 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	if !ok {
 		return managed.ExternalUpdate{}, errors.New(errNotSubnetType)
 	}
-	req := &vpc_pb.GetSubnetRequest{SubnetId: cr.Status.AtProvider.ID}
-	resp, err := c.subn.Get(ctx, req)
-	if err != nil {
-		return managed.ExternalUpdate{}, errors.Wrap(err, errGetSubnet)
-	}
 	ureq := &vpc_pb.UpdateSubnetRequest{
-		SubnetId:     resp.Id,
-		Name:         cr.Spec.ForProvider.Name,
-		Description:  cr.Spec.ForProvider.Description,
-		Labels:       cr.Spec.ForProvider.Labels,
-		RouteTableId: cr.Spec.ForProvider.RouteTableID,
+		SubnetId:     cr.Status.AtProvider.ID,
+		Name:         cr.GetName(),
+		Description:  cr.Spec.Description,
+		Labels:       cr.Spec.Labels,
+		RouteTableId: cr.Spec.RouteTableID,
 		// No UpdateMask support for now. It seems useless, when we use yaml files to "rule them all".
 	}
-	if cr.Status.AtProvider.Name != cr.Spec.ForProvider.Name ||
-		!reflect.DeepEqual(cr.Status.AtProvider.Labels, cr.Spec.ForProvider.Labels) ||
-		cr.Status.AtProvider.Description != cr.Spec.ForProvider.Description ||
-		cr.Status.AtProvider.RouteTableID != cr.Spec.ForProvider.RouteTableID {
 
-		_, err = c.subn.Update(ctx, ureq)
+	if cr.Status.AtProvider.Name != cr.GetName() || // How is it possible?
+		!reflect.DeepEqual(cr.Status.AtProvider.Labels, cr.Spec.Labels) ||
+		cr.Status.AtProvider.Description != cr.Spec.Description ||
+		cr.Status.AtProvider.RouteTableID != cr.Spec.RouteTableID {
+
+		_, err := c.subn.Update(ctx, ureq)
 		if err != nil {
 			return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateSubnet)
 		}
 	}
 
-	cr.Status.AtProvider.Name = cr.Spec.ForProvider.Name
-	cr.Status.AtProvider.Labels = cr.Spec.ForProvider.Labels
-	cr.Status.AtProvider.Description = cr.Spec.ForProvider.Description
-	cr.Status.AtProvider.RouteTableID = cr.Spec.ForProvider.RouteTableID
+	cr.Status.AtProvider.Name = cr.GetName()
+	cr.Status.AtProvider.Labels = cr.Spec.Labels
+	cr.Status.AtProvider.Description = cr.Spec.Description
+	cr.Status.AtProvider.RouteTableID = cr.Spec.RouteTableID
 
 	return managed.ExternalUpdate{
 		// Optionally return any details that may be required to connect to the
