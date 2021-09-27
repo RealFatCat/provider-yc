@@ -25,7 +25,10 @@ import (
 type InternalAddressSpec struct {
 	// ID of the subnet. If no ID is specified, and there only one subnet in specified zone, an address in this subnet will be allocated.
 	// +optional
-	SubnetName string `json:"subnetName,omitempty"`
+	SubnetID    string          `json:"subnetId,omitempty"`
+	SubnetIDRef *xpv1.Reference `json:"subnetIdRef,omitempty"`
+	// +optional
+	SubnetIDSelector *xpv1.Selector `json:"subnetIdSelector,omitempty"`
 }
 
 type ExternalAddressSpec struct{}
@@ -342,8 +345,12 @@ type ClusterSpec struct {
 	// +kubebuilder:validation:Required
 	ZoneID string `json:"zoneId,omitempty"`
 	// Name of the network.
+	// +optional
+	NetworkID string `json:"networkId,omitempty"`
 	// +kubebuilder:validation:Required
-	NetworkName string `json:"networkName,omitempty"`
+	NetworkIDRef *xpv1.Reference `json:"networkIdRef,omitempty"`
+	// +optional
+	NetworkIDSelector *xpv1.Selector `json:"networkIdSelector,omitempty"`
 	// IP allocation policy of the Kubernetes cluster.
 	// +kubebuilder:validation:Required
 	MasterSpec *MasterSpec `json:"masterSpec,omitempty"`

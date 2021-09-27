@@ -17,7 +17,8 @@ spec:
       source:
         imageId: fd8urjqioepver7sq82o
   networkInterfaces:
-    - subnetName: subnet-w-refs
+    - subnetIdRef:
+        name: subnet-w-refs
       primaryV4address:
         oneToOneNat:
           ipVersion: IPV4

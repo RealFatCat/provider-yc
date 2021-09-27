@@ -24,13 +24,10 @@ import (
 	"google.golang.org/genproto/protobuf/field_mask"
 
 	compute_pb "github.com/yandex-cloud/go-genproto/yandex/cloud/compute/v1"
-	vpc_pb "github.com/yandex-cloud/go-genproto/yandex/cloud/vpc/v1"
 
 	ycsdk "github.com/yandex-cloud/go-sdk"
 	"github.com/yandex-cloud/go-sdk/gen/compute"
 	"github.com/yandex-cloud/go-sdk/iamkey"
-
-	"github.com/yandex-cloud/go-sdk/gen/vpc"
 
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -52,11 +49,11 @@ import (
 )
 
 const (
-	errNotSubnetType = "managed resource is not a SubnetType custom resource"
-	errTrackPCUsage  = "cannot track ProviderConfig usage"
-	errGetPC         = "cannot get ProviderConfig"
-	errGetCreds      = "cannot get credentials"
-	errGetSDK        = "cannot get YC SDK"
+	errNotInstanceType = "managed resource is not a InstanceType custom resource"
+	errTrackPCUsage    = "cannot track ProviderConfig usage"
+	errGetPC           = "cannot get ProviderConfig"
+	errGetCreds        = "cannot get credentials"
+	errGetSDK          = "cannot get YC SDK"
 
 	errGetNetwork = "cannot get Network"
 
@@ -69,7 +66,7 @@ const (
 	errRequiredField = "missing required field"
 )
 
-// Setup adds a controller that reconciles SubnetType managed resources.
+// Setup adds a controller that reconciles InstanceType managed resources.
 func Setup(mgr ctrl.Manager, l logging.Logger, rl workqueue.RateLimiter) error {
 	name := managed.ControllerName(v1alpha1.InstanceTypeGroupKind)
 
@@ -108,7 +105,7 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 	fmt.Println("Connecting")
 	cr, ok := mg.(*v1alpha1.Instance)
 	if !ok {
-		return nil, errors.New(errNotSubnetType)
+		return nil, errors.New(errNotInstanceType)
 	}
 
 	t := resource.NewProviderConfigUsageTracker(c.client, &apisv1alpha1.ProviderConfigUsage{})
@@ -141,22 +138,20 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 		return nil, errors.Wrap(err, "could not create SDK")
 	}
 	cl := sdk.Compute().Instance()
-	sn := sdk.VPC().Subnet()
 	fmt.Println("Connecting done")
-	return &external{instance: cl, subnet: sn}, nil
+	return &external{instance: cl}, nil
 }
 
 // An ExternalClient observes, then either creates, updates, or deletes an
 // external resource to ensure it reflects the managed resource's desired state.
 type external struct {
 	instance *compute.InstanceServiceClient
-	subnet   *vpc.SubnetServiceClient
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
 	cr, ok := mg.(*v1alpha1.Instance)
 	if !ok {
-		return managed.ExternalObservation{}, errors.New(errNotSubnetType)
+		return managed.ExternalObservation{}, errors.New(errNotInstanceType)
 	}
 
 	// These fmt statements should be removed in the real implementation.
@@ -251,24 +246,6 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		// resource. These will be stored as the connection secret.
 		ConnectionDetails: managed.ConnectionDetails{},
 	}, nil
-}
-
-func getSubnetIDs(ctx context.Context, client *vpc.SubnetServiceClient, folderID string, netIfaces []*v1alpha1.NetworkInterfaceSpec) error {
-	for _, iface := range netIfaces {
-		req := &vpc_pb.ListSubnetsRequest{
-			FolderId: folderID,
-			Filter:   fmt.Sprintf("name = '%s'", iface.SubnetName),
-		}
-		nrsp, err := client.List(ctx, req)
-		if err != nil {
-			return errors.Wrap(err, errGetNetwork)
-		}
-		if len(nrsp.Subnets) != 1 {
-			return errors.Wrap(fmt.Errorf("%s not found, or multiple values recived", iface.SubnetName), errGetNetwork)
-		}
-		iface.SubnetID = nrsp.Subnets[0].Id
-	}
-	return nil
 }
 
 func fillDNSRecords(recs []*v1alpha1.DnsRecord) []*compute_pb.DnsRecordSpec {
@@ -390,16 +367,11 @@ func fillPlacementPolicyPb(pp *v1alpha1.PlacementPolicy) *compute_pb.PlacementPo
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
 	cr, ok := mg.(*v1alpha1.Instance)
 	if !ok {
-		return managed.ExternalCreation{}, errors.New(errNotSubnetType)
+		return managed.ExternalCreation{}, errors.New(errNotInstanceType)
 	}
 
 	fmt.Printf("Creating: %+v", cr)
 	cr.Status.SetConditions(xpv1.Creating())
-
-	err := getSubnetIDs(ctx, c.subnet, cr.Spec.FolderID, cr.Spec.NetworkInterfaces)
-	if err != nil {
-		return managed.ExternalCreation{}, errors.Wrap(err, errGetNetwork)
-	}
 
 	// Fill Resources, required for creation
 	if cr.Spec.Resources == nil {
@@ -477,7 +449,6 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 				}
 			}
 
-			fmt.Println("pr4dns records filled")
 			ni := &compute_pb.NetworkInterfaceSpec{
 				SubnetId:             iface.SubnetID,
 				PrimaryV4AddressSpec: pr4a,
@@ -526,7 +497,7 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.ExternalUpdate, error) {
 	cr, ok := mg.(*v1alpha1.Instance)
 	if !ok {
-		return managed.ExternalUpdate{}, errors.New(errNotSubnetType)
+		return managed.ExternalUpdate{}, errors.New(errNotInstanceType)
 	}
 	fmt.Printf("update %+v", cr)
 
@@ -624,7 +595,7 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 	cr, ok := mg.(*v1alpha1.Instance)
 	if !ok {
-		return errors.New(errNotSubnetType)
+		return errors.New(errNotInstanceType)
 	}
 
 	mg.SetConditions(xpv1.Deleting())
