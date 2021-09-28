@@ -36,8 +36,6 @@ import (
 	"github.com/yandex-cloud/go-sdk/sdkresolvers"
 
 	"google.golang.org/genproto/protobuf/field_mask"
-
-	hlp "github.com/RealFatCat/provider-yc/pkg/clients/kubernetes/cluster"
 )
 
 const (
@@ -490,7 +488,7 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 				},
 			},
 			SecurityGroupIds:  cr.Spec.MasterSpec.SecurityGroupIds,
-			MaintenancePolicy: hlp.FillMaintenancePolicyPb(ctx, cr.Spec.MasterSpec),
+			MaintenancePolicy: FillMaintenancePolicyPb(ctx, cr.Spec.MasterSpec),
 		}
 		needUpdate = true
 		paths = append(paths, "master_spec")
