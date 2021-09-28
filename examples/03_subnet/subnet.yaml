@@ -1,15 +1,14 @@
 apiVersion: networking.yc.yandex-team.ru/v1alpha1
 kind: Subnet
 metadata:
-  name: yc-subnet
+  name: subnet-w-refs
 spec:
-  forProvider:
-    name: subnet-from-kuber
-    folder_id: b1gjmmtufqjb87p5tojj
-    network_name: network-from-kuber
-    zone_id: ru-central1-a
-    v4_cidr_blocks:
-      - 10.5.15.0/24
-    description: "yc subnet created via kubectl"
+  folderId: b1gjmmtufqjb87p5tojj
+  networkIdRef:
+    name: network-from-kuber
+  zoneId: ru-central1-a
+  v4CidrBlocks:
+    - 10.6.16.0/24
+  description: "subnet created with refs"
   providerConfigRef:
-    name: test-yc
+    name: provider-yc-test

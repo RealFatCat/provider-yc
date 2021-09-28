@@ -3,26 +3,25 @@ kind: Instance
 metadata:
   name: kuber-compute-instance
 spec:
-  forProvider:
-    name: instance-from-kuber
-    folder_id: b1gjmmtufqjb87p5tojj
-    zone_id: ru-central1-a
-    platform_id: standard-v1
-    resources:
-      cores: 2
-      memory: 2147483648
-    boot_disk:
-      auto_delete: true
-      disk:
-        type_id: network-hdd
-        size: 21474836480
-        source:
-          image_id: fd8urjqioepver7sq82o
-    network_interfaces:
-      - subnet_name: subnet-from-kuber
-        primary_v4_address:
-          one_to_one_nat:
-            ip_version: IPV4
-    description: "yc compute instance created via kubectl"
+  folderId: b1gjmmtufqjb87p5tojj
+  zoneId: ru-central1-a
+  platformId: standard-v1
+  resources:
+    cores: 2
+    memory: 2147483648
+  bootDisk:
+    autoDelete: true
+    disk:
+      typeId: network-hdd
+      size: 21474836480
+      source:
+        imageId: fd8urjqioepver7sq82o
+  networkInterfaces:
+    - subnetIdRef:
+        name: subnet-w-refs
+      primaryV4address:
+        oneToOneNat:
+          ipVersion: IPV4
+  description: "yc compute instance created via kubectl"
   providerConfigRef:
-    name: test-yc
+    name: provider-yc-test
