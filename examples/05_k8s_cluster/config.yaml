@@ -3,16 +3,17 @@ kind: Cluster
 metadata:
   name: k8s-cluster-from-kuber
 spec:
-  forProvider:
   folderId: b1gjmmtufqjb87p5tojj
   zoneId: ru-central1-a
-  networkName: network-from-kuber
+  networkIdRef:
+    name: network-from-kuber
   masterSpec:
     masterType:
       zonalMasterSpec:
         zoneId: ru-central1-a
         internalV4addressSpec:
-          subnetName: subnet-w-refs
+          subnetIdRef:
+            name: subnet-w-refs
     version: "1.20"
     maintenancePolicy:
       autoUpgrade: true

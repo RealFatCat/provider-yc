@@ -31,7 +31,7 @@ func (mg *Subnet) ResolveReferences(ctx context.Context, c client.Reader) error 
 		Extract:      NetworkID(),
 	})
 	if err != nil {
-		return errors.Wrap(err, "Spec.ForProvider.NetworkID")
+		return errors.Wrap(err, "Spec.NetworkID")
 	}
 	mg.Spec.NetworkID = rsp.ResolvedValue
 	mg.Spec.NetworkIDRef = rsp.ResolvedReference
