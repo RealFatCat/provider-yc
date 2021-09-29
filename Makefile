@@ -11,8 +11,11 @@ build: generate test
 image: generate test
 	docker build . -t $(ORG_NAME)/$(PROVIDER_NAME):latest -f cluster/Dockerfile
 
+image-tag:
+	docker image tag sha256:$(SHA) $(ORG_NAME)/$(PROVIDER_NAME):$(VERSION)
+
 image-push:
-	docker push $(ORG_NAME)/$(PROVIDER_NAME):latest
+	docker push $(ORG_NAME)/$(PROVIDER_NAME):$(VERSION)
 
 run: generate
 	kubectl apply -f package/crds/ -R

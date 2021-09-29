@@ -105,10 +105,11 @@ type SubnetSpec struct {
 	FolderID string `json:"folderId"`
 	ZoneID   string `json:"zoneId"`
 	// +optional
-	NetworkID    string          `json:"networkId"`
-	NetworkIDRef *xpv1.Reference `json:"networkIdRef"`
+	NetworkID string `json:"networkId,omitempty"`
 	// +optional
-	NetworkIDSelector *xpv1.Selector `json:"networkIdSelector"`
+	NetworkIDRef *xpv1.Reference `json:"networkIdRef,omitempty"`
+	// +optional
+	NetworkIDSelector *xpv1.Selector `json:"networkIdSelector,omitempty"`
 	V4CidrBlocks      []string       `json:"v4CidrBlocks"`
 	// +optional
 	Description string `json:"description,omitempty"`

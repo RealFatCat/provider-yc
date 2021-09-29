@@ -270,8 +270,6 @@ spec:
                           description: MatchLabels ensures an object with matching labels is selected.
                           type: object
                       type: object
-                  required:
-                  - subnetIdRef
                   type: object
                 type: array
               networkSettings:

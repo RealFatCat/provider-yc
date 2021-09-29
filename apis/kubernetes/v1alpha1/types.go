@@ -347,7 +347,7 @@ type ClusterSpec struct {
 	// Name of the network.
 	// +optional
 	NetworkID string `json:"networkId,omitempty"`
-	// +kubebuilder:validation:Required
+	// +optional
 	NetworkIDRef *xpv1.Reference `json:"networkIdRef,omitempty"`
 	// +optional
 	NetworkIDSelector *xpv1.Selector `json:"networkIdSelector,omitempty"`

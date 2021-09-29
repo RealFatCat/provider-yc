@@ -1,7 +1,7 @@
 apiVersion: networking.yc.yandex-team.ru/v1alpha1
 kind: Network
 metadata:
-  name: network-from-kuber-2
+  name: network-from-kuber
 spec:
   folderId: b1gjmmtufqjb87p5tojj
   description: "yc network created via kubectl"

@@ -29,6 +29,9 @@ import (
 
 	"github.com/RealFatCat/provider-yc/apis"
 	"github.com/RealFatCat/provider-yc/internal/controller"
+
+	"net/http"
+	_ "net/http/pprof"
 )
 
 func main() {
@@ -50,6 +53,9 @@ func main() {
 	}
 
 	log.Debug("Starting", "sync-period", syncPeriod.String())
+	go func() {
+		http.ListenAndServe("localhost:6060", nil)
+	}()
 
 	cfg, err := ctrl.GetConfig()
 	kingpin.FatalIfError(err, "Cannot get API server rest config")

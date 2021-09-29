@@ -139,7 +139,6 @@ spec:
                 type: string
             required:
             - folderId
-            - networkIdRef
             - v4CidrBlocks
             - zoneId
             type: object

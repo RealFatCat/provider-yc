@@ -155,10 +155,11 @@ type PlacementPolicy struct {
 
 type NetworkInterfaceSpec struct {
 	// +optional
-	SubnetID    string          `json:"subnetId"`
-	SubnetIDRef *xpv1.Reference `json:"subnetIdRef"`
+	SubnetID string `json:"subnetId,omitempty"`
 	// +optional
-	SubnetIDSelector *xpv1.Selector `json:"subnetIdSelector"`
+	SubnetIDRef *xpv1.Reference `json:"subnetIdRef,omitempty"`
+	// +optional
+	SubnetIDSelector *xpv1.Selector `json:"subnetIdSelector,omitempty"`
 	// Primary IPv4 address that is assigned to the instance for this network interface.
 	// +optional
 	PrimaryV4Address *PrimaryAddressSpec `json:"primaryV4address,omitempty"`
