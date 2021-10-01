@@ -15,6 +15,8 @@ import (
 	duration "github.com/golang/protobuf/ptypes/duration"
 	dayofweek "google.golang.org/genproto/googleapis/type/dayofweek"
 	timeofday "google.golang.org/genproto/googleapis/type/timeofday"
+
+	yc "github.com/RealFatCat/provider-yc/pkg/clients"
 )
 
 func (c *external) fillMasterSpecPb(ctx context.Context, ms *v1alpha1.MasterSpec, folderID string) (*k8s_pb.MasterSpec, error) {
@@ -69,11 +71,18 @@ func (c *external) fillMasterSpecPb(ctx context.Context, ms *v1alpha1.MasterSpec
 
 // TODO: Move to reference
 func (c *external) getAccID(ctx context.Context, folderID, accName string) (string, error) {
+	sdk, err := yc.CreateSDK(ctx, c.cfg)
+	if err != nil {
+		return "", errors.Wrap(err, "could not create SDK")
+	}
+	defer sdk.Shutdown(ctx)
+
 	req := &acc_pb.ListServiceAccountsRequest{
 		FolderId: folderID,
 		Filter:   sdkresolvers.CreateResolverFilter("name", accName),
 	}
-	resp, err := c.accs.List(ctx, req)
+	accs := sdk.IAM().ServiceAccount()
+	resp, err := accs.List(ctx, req)
 	if err != nil {
 		return "", err
 	}

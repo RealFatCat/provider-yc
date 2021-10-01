@@ -23,11 +23,10 @@ import (
 
 	vpc_pb "github.com/yandex-cloud/go-genproto/yandex/cloud/vpc/v1"
 	ycsdk "github.com/yandex-cloud/go-sdk"
-	"github.com/yandex-cloud/go-sdk/gen/vpc"
-	"github.com/yandex-cloud/go-sdk/iamkey"
+
+	yc "github.com/RealFatCat/provider-yc/pkg/clients"
 
 	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -42,15 +41,10 @@ import (
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 
 	"github.com/RealFatCat/provider-yc/apis/network/v1alpha1"
-	apisv1alpha1 "github.com/RealFatCat/provider-yc/apis/v1alpha1"
 )
 
 const (
 	errNotNetworkType = "managed resource is not a NetworkType custom resource"
-	errTrackPCUsage   = "cannot track ProviderConfig usage"
-	errGetPC          = "cannot get ProviderConfig"
-	errGetCreds       = "cannot get credentials"
-	errGetSDK         = "cannot get YC SDK"
 
 	errNewClient            = "cannot create new Service"
 	errCreateVirtualNetwork = "cannot create network"
@@ -99,57 +93,38 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 	if !ok {
 		return nil, errors.New(errNotNetworkType)
 	}
-
-	t := resource.NewProviderConfigUsageTracker(c.client, &apisv1alpha1.ProviderConfigUsage{})
-	if err := t.Track(ctx, mg); err != nil {
-		return nil, errors.Wrap(err, errTrackPCUsage)
-	}
-
-	pc := &apisv1alpha1.ProviderConfig{}
-	if err := c.client.Get(ctx, types.NamespacedName{Name: cr.GetProviderConfigReference().Name}, pc); err != nil {
-		return nil, errors.Wrap(err, errGetPC)
-	}
-
-	cd := pc.Spec.Credentials
-	data, err := resource.CommonCredentialExtractor(ctx, cd.Source, c.client, cd.CommonCredentialSelectors)
+	cfg, err := yc.CreateConfig(ctx, c.client, cr)
 	if err != nil {
-		return nil, errors.Wrap(err, errGetCreds)
+		return nil, errors.Wrap(err, yc.ErrCreateConfig)
 	}
-
-	key, err := iamkey.ReadFromJSONBytes(data)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not parse key data")
-	}
-	creds, err := ycsdk.ServiceAccountKey(key)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create creds from key data")
-	}
-	cfg := ycsdk.Config{Credentials: creds}
-	sdk, err := ycsdk.Build(ctx, cfg)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create SDK")
-	}
-	cl := sdk.VPC().Network()
 	fmt.Println("Connecting done")
-	return &external{client: cl}, nil
+	return &external{cfg: cfg}, nil
 }
 
 // An ExternalClient observes, then either creates, updates, or deletes an
 // external resource to ensure it reflects the managed resource's desired state.
 type external struct {
-	client *vpc.NetworkServiceClient
+	cfg *ycsdk.Config
 }
 
+// TODO: Move to function
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
 	cr, ok := mg.(*v1alpha1.Network)
 	if !ok {
 		return managed.ExternalObservation{}, errors.New(errNotNetworkType)
 	}
 
+	sdk, err := yc.CreateSDK(ctx, c.cfg)
+	if err != nil {
+		return managed.ExternalObservation{}, errors.Wrap(err, "could not create SDK")
+	}
+	defer sdk.Shutdown(ctx)
+	client := sdk.VPC().Network()
+
 	// These fmt statements should be removed in the real implementation.
 	fmt.Printf("Observing: %+v", cr)
 	req := &vpc_pb.ListNetworksRequest{FolderId: cr.Spec.FolderID, Filter: fmt.Sprintf("name = '%s'", cr.GetName())}
-	resp, err := c.client.List(ctx, req)
+	resp, err := client.List(ctx, req)
 	if err != nil {
 		return managed.ExternalObservation{}, errors.Wrap(err, errGetNetwork)
 	}
@@ -184,6 +159,13 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalCreation{}, errors.New(errNotNetworkType)
 	}
 
+	sdk, err := yc.CreateSDK(ctx, c.cfg)
+	if err != nil {
+		return managed.ExternalCreation{}, errors.Wrap(err, "could not create SDK")
+	}
+	defer sdk.Shutdown(ctx)
+	client := sdk.VPC().Network()
+
 	fmt.Printf("Creating: %+v", cr)
 	cr.Status.SetConditions(xpv1.Creating())
 
@@ -198,7 +180,7 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		// Resource labels as `` key:value `` pairs.
 		Labels: cr.Spec.Labels,
 	}
-	if _, err := c.client.Create(ctx, req); err != nil {
+	if _, err := client.Create(ctx, req); err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, errCreateVirtualNetwork)
 	}
 
@@ -214,6 +196,13 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	if !ok {
 		return managed.ExternalUpdate{}, errors.New(errNotNetworkType)
 	}
+	sdk, err := yc.CreateSDK(ctx, c.cfg)
+	if err != nil {
+		return managed.ExternalUpdate{}, errors.Wrap(err, "could not create SDK")
+	}
+	defer sdk.Shutdown(ctx)
+	client := sdk.VPC().Network()
+
 	ureq := &vpc_pb.UpdateNetworkRequest{
 		NetworkId:   cr.Status.AtProvider.ID,
 		Name:        cr.GetName(),
@@ -226,7 +215,7 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		!reflect.DeepEqual(cr.Status.AtProvider.Labels, cr.Spec.Labels) ||
 		cr.Status.AtProvider.Description != cr.Spec.Description {
 
-		_, err := c.client.Update(ctx, ureq)
+		_, err := client.Update(ctx, ureq)
 		if err != nil {
 			return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateNetwork)
 		}
@@ -249,11 +238,18 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 		return errors.New(errNotNetworkType)
 	}
 
+	sdk, err := yc.CreateSDK(ctx, c.cfg)
+	if err != nil {
+		return errors.Wrap(err, "could not create SDK")
+	}
+	defer sdk.Shutdown(ctx)
+	client := sdk.VPC().Network()
+
 	mg.SetConditions(xpv1.Deleting())
 
 	req := &vpc_pb.DeleteNetworkRequest{NetworkId: cr.Status.AtProvider.ID}
 	fmt.Printf("Deleting: %+v", cr)
-	_, err := c.client.Delete(ctx, req)
+	_, err = client.Delete(ctx, req)
 	if err != nil {
 		return errors.Wrap(err, errDeleteVirtualNetwork)
 	}

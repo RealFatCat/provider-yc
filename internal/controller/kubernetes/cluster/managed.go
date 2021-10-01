@@ -8,12 +8,10 @@ import (
 
 	k8s_pb "github.com/yandex-cloud/go-genproto/yandex/cloud/k8s/v1"
 	ycsdk "github.com/yandex-cloud/go-sdk"
-	"github.com/yandex-cloud/go-sdk/gen/iam"
-	"github.com/yandex-cloud/go-sdk/gen/kubernetes"
-	"github.com/yandex-cloud/go-sdk/iamkey"
+
+	yc "github.com/RealFatCat/provider-yc/pkg/clients"
 
 	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,8 +26,6 @@ import (
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 
 	"github.com/RealFatCat/provider-yc/apis/kubernetes/v1alpha1"
-
-	apisv1alpha1 "github.com/RealFatCat/provider-yc/apis/v1alpha1"
 
 	dayofweek "google.golang.org/genproto/googleapis/type/dayofweek"
 
@@ -95,47 +91,18 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 	if !ok {
 		return nil, errors.New(errNotClusterType)
 	}
-
-	t := resource.NewProviderConfigUsageTracker(c.client, &apisv1alpha1.ProviderConfigUsage{})
-	if err := t.Track(ctx, mg); err != nil {
-		return nil, errors.Wrap(err, errTrackPCUsage)
-	}
-
-	pc := &apisv1alpha1.ProviderConfig{}
-	if err := c.client.Get(ctx, types.NamespacedName{Name: cr.GetProviderConfigReference().Name}, pc); err != nil {
-		return nil, errors.Wrap(err, errGetPC)
-	}
-
-	cd := pc.Spec.Credentials
-	data, err := resource.CommonCredentialExtractor(ctx, cd.Source, c.client, cd.CommonCredentialSelectors)
+	cfg, err := yc.CreateConfig(ctx, c.client, cr)
 	if err != nil {
-		return nil, errors.Wrap(err, errGetCreds)
+		return nil, errors.Wrap(err, yc.ErrCreateConfig)
 	}
-
-	key, err := iamkey.ReadFromJSONBytes(data)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not parse key data")
-	}
-	creds, err := ycsdk.ServiceAccountKey(key)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create creds from key data")
-	}
-	cfg := ycsdk.Config{Credentials: creds}
-	sdk, err := ycsdk.Build(ctx, cfg)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create SDK")
-	}
-	cl := sdk.Kubernetes().Cluster()
-	accs := sdk.IAM().ServiceAccount()
 	fmt.Println("Connecting done")
-	return &external{client: cl, accs: accs}, nil
+	return &external{cfg: cfg}, nil
 }
 
 // An ExternalClient observes, then either creates, updates, or deletes an
 // external resource to ensure it reflects the managed resource's desired state.
 type external struct {
-	client *k8s.ClusterServiceClient
-	accs   *iam.ServiceAccountServiceClient
+	cfg *ycsdk.Config
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
@@ -143,6 +110,12 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	if !ok {
 		return managed.ExternalObservation{}, errors.New(errNotClusterType)
 	}
+	sdk, err := yc.CreateSDK(ctx, c.cfg)
+	if err != nil {
+		return managed.ExternalObservation{}, errors.Wrap(err, "could not create SDK")
+	}
+	defer sdk.Shutdown(ctx)
+	client := sdk.Kubernetes().Cluster()
 
 	// These fmt statements should be removed in the real implementation.
 	fmt.Printf("Observing: %+v", cr)
@@ -150,7 +123,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		FolderId: cr.Spec.FolderID,
 		Filter:   sdkresolvers.CreateResolverFilter("name", cr.GetName()),
 	}
-	resp, err := c.client.List(ctx, req)
+	resp, err := client.List(ctx, req)
 	if err != nil {
 		return managed.ExternalObservation{}, errors.Wrap(err, errGetCluster)
 	}
@@ -304,6 +277,13 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalCreation{}, errors.New(errNotClusterType)
 	}
 
+	sdk, err := yc.CreateSDK(ctx, c.cfg)
+	if err != nil {
+		return managed.ExternalCreation{}, errors.Wrap(err, "could not create SDK")
+	}
+	defer sdk.Shutdown(ctx)
+	client := sdk.Kubernetes().Cluster()
+
 	cr.Status.SetConditions(xpv1.Creating())
 
 	serviceAccID, err := c.getAccID(ctx, cr.Spec.FolderID, cr.Spec.ServiceAccountName)
@@ -390,7 +370,7 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	}
 
 	// End of all fills
-	if _, err := c.client.Create(ctx, req); err != nil {
+	if _, err := client.Create(ctx, req); err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, errCreateCluster)
 	}
 
@@ -406,9 +386,14 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	if !ok {
 		return managed.ExternalUpdate{}, errors.New(errNotClusterType)
 	}
-	fmt.Printf("\n\n%+v\n\n", cr)
+	sdk, err := yc.CreateSDK(ctx, c.cfg)
+	if err != nil {
+		return managed.ExternalUpdate{}, errors.Wrap(err, "could not create SDK")
+	}
+	defer sdk.Shutdown(ctx)
+	client := sdk.Kubernetes().Cluster()
 	req := &k8s_pb.GetClusterRequest{ClusterId: cr.Status.AtProvider.ID}
-	resp, err := c.client.Get(ctx, req)
+	resp, err := client.Get(ctx, req)
 	if err != nil {
 		return managed.ExternalUpdate{}, errors.Wrap(err, errGetCluster)
 	}
@@ -501,7 +486,7 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		fmt.Printf("\nPaths: %s\n", ureq.UpdateMask.Paths)
 		fmt.Printf("\nUpdate REQ: %s\n", ureq)
 
-		_, err := c.client.Update(ctx, ureq)
+		_, err := client.Update(ctx, ureq)
 		if err != nil {
 			return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateCluster)
 		}
@@ -520,11 +505,17 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 		return errors.New(errNotClusterType)
 	}
 
+	sdk, err := yc.CreateSDK(ctx, c.cfg)
+	if err != nil {
+		return errors.Wrap(err, "could not create SDK")
+	}
+	defer sdk.Shutdown(ctx)
+	client := sdk.Kubernetes().Cluster()
 	mg.SetConditions(xpv1.Deleting())
 
 	req := &k8s_pb.DeleteClusterRequest{ClusterId: cr.Status.AtProvider.ID}
 	fmt.Printf("Deleting: %+v", cr)
-	_, err := c.client.Delete(ctx, req)
+	_, err = client.Delete(ctx, req)
 	if err != nil {
 		return errors.Wrap(err, errDeleteCluster)
 	}
