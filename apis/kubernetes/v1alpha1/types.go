@@ -69,17 +69,19 @@ type MasterLocation struct {
 
 type MasterSpec_MasterType struct {
 	// +optional
-	ZonalMasterSpec *ZonalMasterSpec `json:"zonalMasterSpec"`
+	ZonalMasterSpec *ZonalMasterSpec `json:"zonalMasterSpec,omitempty"`
 	// +optional
-	RegionalMasterSpec *RegionalMasterSpec `json:"regionalMasterSpec"`
+	RegionalMasterSpec *RegionalMasterSpec `json:"regionalMasterSpec,omitempty"`
 }
 
 type ZonalMaster struct {
 	// ID of the availability zone where the master resides.
 	ZoneId string `json:"zoneId,omitempty"`
 	// IPv4 internal network address that is assigned to the master.
+	// +optional
 	InternalV4Address string `json:"internalV4Address,omitempty"`
 	// IPv4 external network address that is assigned to the master.
+	// +optional
 	ExternalV4Address string `json:"externalV4Address,omitempty"`
 }
 
@@ -87,14 +89,18 @@ type RegionalMaster struct {
 	// ID of the region where the master resides.
 	RegionId string `json:"regionId,omitempty"`
 	// IPv4 internal network address that is assigned to the master.
+	// +optional
 	InternalV4Address string `json:"internalV4Address,omitempty"`
 	// IPv4 external network address that is assigned to the master.
+	// +optional
 	ExternalV4Address string `json:"externalV4Address,omitempty"`
 }
 
 type Master_MasterType struct {
 	// Parameters of the availability zone for the master.
-	ZonalMaster    *ZonalMaster    `json:"zonalMaster,omitempty"`
+	// +optional
+	ZonalMaster *ZonalMaster `json:"zonalMaster,omitempty"`
+	// +optional
 	RegionalMaster *RegionalMaster `json:"regionalMaster,omitempty"`
 }
 
@@ -115,6 +121,7 @@ type Master struct {
 	// Maintenance policy of the master.
 	MaintenancePolicy *MasterMaintenancePolicy `json:"maintenancePolicy,omitempty"`
 	// Master security groups.
+	// +optional
 	SecurityGroupIds []string `json:"securityGroupIds,omitempty"`
 }
 
@@ -125,7 +132,7 @@ type MasterMaintenancePolicy struct {
 	AutoUpgrade bool `json:"autoUpgrade,omitempty"`
 	// Maintenance window settings. Update will start at the specified time and last no more than the specified duration.
 	// The time is set in UTC.
-	// +kubebuilder:validation:Required
+	// +optional
 	MaintenanceWindow *MaintenanceWindow `json:"maintenanceWindow,omitempty"`
 }
 
@@ -137,19 +144,19 @@ type MaintenanceWindow struct {
 	//	*MaintenanceWindow_DailyMaintenanceWindow
 	//	*MaintenanceWindow_WeeklyMaintenanceWindow
 	// +kubebuilder:validation:Required
-	Policy *MaintenanceWindow_Policy `json:"policy"`
+	Policy *MaintenanceWindow_Policy `json:"policy,omitempty"`
 }
 
 type MaintenanceWindow_Policy struct {
 	// Updating the master at any time.
 	// +optional
-	Anytime *AnytimeMaintenanceWindow `json:"anytime"`
+	Anytime *AnytimeMaintenanceWindow `json:"anytime,omitempty"`
 	// Updating the master on any day during the specified time window.
 	// +optional
-	DailyMaintenanceWindow *DailyMaintenanceWindow `json:"dailyMaintenanceWindow"`
+	DailyMaintenanceWindow *DailyMaintenanceWindow `json:"dailyMaintenanceWindow,omitempty"`
 	// Updating the master on selected days during the specified time window.
 	// +optional
-	WeeklyMaintenanceWindow *WeeklyMaintenanceWindow `json:"weeklyMaintenanceWindow"`
+	WeeklyMaintenanceWindow *WeeklyMaintenanceWindow `json:"weeklyMaintenanceWindow,omitempty"`
 }
 
 type AnytimeMaintenanceWindow struct{}
@@ -187,6 +194,7 @@ type Duration struct {
 	// +optional
 	// +kubebuilder:validation:Minimum:=3600
 	// +kubebuilder:validation:Maximum:=86400
+	// +kubebuilder:validation:Required
 	Seconds int64 `json:"seconds,omitempty"`
 	// Signed fractions of a second at nanosecond resolution of the span
 	// of time. Durations less than one second are represented with a 0
@@ -200,18 +208,19 @@ type Duration struct {
 
 type WeeklyMaintenanceWindow struct {
 	// Days of the week and the maintenance window for these days when automatic updates are allowed.
-	// +optional
+	// +kubebuilder:validation:Required
 	DaysOfWeek []*DaysOfWeekMaintenanceWindow `json:"daysOfWeek,omitempty"`
 }
 
 type DaysOfWeekMaintenanceWindow struct {
 	// Days of the week when automatic updates are allowed.
+	// +kubebuilder:validation:Required
 	Days []string `json:"days,omitempty"`
 	// Window start time, in the UTC timezone.
-	// +optional
+	// +kubebuilder:validation:Required
 	StartTime *TimeOfDay `json:"startTime,omitempty"`
 	// Window duration.
-	// +optional
+	// +kubebuilder:validation:Required
 	Duration *Duration `json:"duration,omitempty"`
 }
 
@@ -223,7 +232,7 @@ type MasterSpec struct {
 	MasterType *MasterSpec_MasterType `json:"masterType"`
 	// Version of Kubernetes components that runs on the master.
 	// +kubebuilder:validation:Required
-	Version string `json:"version,omitempty"`
+	Version string `json:"version"`
 	// Maintenance policy of the master.
 	// +optional
 	MaintenancePolicy *MasterMaintenancePolicy `json:"maintenancePolicy,omitempty"`
@@ -258,39 +267,42 @@ type IPAllocationPolicy struct {
 }
 
 type NetworkPolicy struct {
-	// +optional
+	// +kubebuilder:validation:Required
 	Provider string `json:"provider,omitempty"`
 }
 
 type KMSProvider struct {
 	// KMS key ID for secrets encryption.
 	// To obtain a KMS key ID use a [yandex.cloud.kms.v1.SymmetricKeyService.List] request.
-	// +optional
-	KeyId string `json:"keyId,omitempty"`
+	// +kubebuilder:validation:Required
+	KeyId string `json:"keyId"`
 }
 
 type Cluster_Cilium struct {
-	// +optional
+	// +kubebuilder:validation:Required
 	Cilium *Cilium `json:"cilium"`
 }
 
 type Cilium struct {
-	// +optional
-	RoutingMode string `json:"routingMode,omitempty"`
+	// +kubebuilder:validation:Required
+	RoutingMode string `json:"routingMode"`
 }
 
 type Cluster_GatewayIpv4Address struct {
 	// Gateway IPv4 address.
-	// +optional
-	GatewayIpv4Address string `json:"gatewayIpv4Address,omitempty"`
+	// +kubebuilder:validation:Required
+	GatewayIpv4Address string `json:"gatewayIpv4Address"`
 }
 
 type MasterUpdateSpec struct {
 	// Specification of the master update.
+	// +optional
 	Version *UpdateVersionSpec `json:"version,omitempty"`
 	// Maintenance policy of the master.
+	// +optional
 	MaintenancePolicy *MasterMaintenancePolicy `json:"maintenancePolicy,omitempty"`
 	// Master security groups.
+	// +optional
 	SecurityGroupIds []string `json:"securityGroupIds,omitempty"`
 }
 
@@ -298,16 +310,17 @@ type UpdateVersionSpec struct {
 	// Types that are assignable to Specifier:
 	//	*UpdateVersionSpec_Version
 	//	*UpdateVersionSpec_LatestRevision
+	// +kubebuilder:validation:Required
 	Specifier *Specifier `json:"specifier"`
 }
 
 type Specifier struct {
 	// Request update to a newer version of Kubernetes (1.x -> 1.y).
 	// +optional
-	Version string `json:"version"`
+	Version string `json:"version,omitempty"`
 	// Request update to the latest revision for the current version.
 	// +optional
-	LatestRevision bool `json:"latestRevision"`
+	LatestRevision bool `json:"latestRevision,omitempty"`
 }
 
 // ClusterObservation are the observable fields of a Cluster.
@@ -353,7 +366,7 @@ type ClusterSpec struct {
 	NetworkIDSelector *xpv1.Selector `json:"networkIdSelector,omitempty"`
 	// IP allocation policy of the Kubernetes cluster.
 	// +kubebuilder:validation:Required
-	MasterSpec *MasterSpec `json:"masterSpec,omitempty"`
+	MasterSpec *MasterSpec `json:"masterSpec"`
 	// IP allocation policy of the Kubernetes cluster.
 	// +optional
 	IpAllocationPolicy *IPAllocationPolicy `json:"ipAllocationPolicy,omitempty"`
@@ -366,13 +379,13 @@ type ClusterSpec struct {
 	// Selected service account should have `edit` role on the folder where the Kubernetes cluster will be
 	// located and on the folder where selected network resides.
 	// +kubebuilder:validation:Required
-	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+	ServiceAccountName string `json:"serviceAccountName"`
 	// Service account to be used by the worker nodes of the Kubernetes cluster to access Container Registry or to push node logs and metrics.
 	// +kubebuilder:validation:Required
-	NodeServiceAccountName string `json:"nodeServiceAccountName,omitempty"`
+	NodeServiceAccountName string `json:"nodeServiceAccountName"`
 	// Release channel for the master.
 	// +kubebuilder:validation:Required
-	ReleaseChannel string `json:"releaseChannel,omitempty"`
+	ReleaseChannel string `json:"releaseChannel"`
 	// +optional
 	NetworkPolicy *NetworkPolicy `json:"networkPolicy,omitempty"`
 	// KMS provider configuration.
@@ -414,4 +427,327 @@ type ClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Cluster `json:"items"`
+}
+
+// NodeGroup
+type NodeGroupSpec struct {
+	xpv1.ResourceSpec `json:",inline"`
+
+	FolderID string `json:"folderId"`
+	// ID of the Kubernetes cluster to create a node group in.
+	// To get the Kubernetes cluster ID, use a [ClusterService.List] request.
+	// +optional
+	ClusterId string `json:"clusterId,omitempty"`
+	// +optional
+	ClusterIdRef *xpv1.Reference `json:"clusterIdRef,omitempty"`
+	// +optional
+	ClusterIdSelector *xpv1.Selector `json:"clusterIdSelector,omitempty"`
+	// Description of the node group.
+	// +optional
+	Description string `json:"description,omitempty"`
+	// Resource labels as `key:value` pairs.
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+	// Node template for creating the node group.
+	// +kubebuilder:validation:Required
+	NodeTemplate *NodeTemplate `json:"nodeTemplate"`
+	// Scale policy of the node group.
+	// +kubebuilder:validation:Required
+	ScalePolicy *ScalePolicy `json:"scalePolicy"`
+	// Allocation policy of the node group by the zones and regions.
+	// +kubebuilder:validation:Required
+	AllocationPolicy *NodeGroupAllocationPolicy `json:"allocationPolicy"`
+	// Deploy policy according to which the updates are rolled out. If not specified,
+	// the default is used.
+	// +optional
+	// +kubebuilder:validation:Required
+	DeployPolicy *DeployPolicy `json:"deployPolicy"`
+	// Version of Kubernetes components that runs on the nodes.
+	// +kubebuilder:validation:Required
+	Version string `json:"version"`
+	// Maintenance policy of the node group.
+	// +kubebuilder:validation:Required
+	MaintenancePolicy *NodeGroupMaintenancePolicy `json:"maintenancePolicy"`
+	// Support for unsafe sysctl parameters. For more details see [documentation](https://kubernetes.io/docs/tasks/administer-cluster/sysctl-cluster/).
+	// +optional
+	AllowedUnsafeSysctls []string `json:"allowedUnsafeSysctls,omitempty"`
+	// Taints that are applied to the nodes of the node group at creation time.
+	// +optional
+	NodeTaints Taints `json:"nodeTaints,omitempty"`
+	// Labels that are assigned to the nodes of the node group at creation time.
+	// +optional
+	NodeLabels map[string]string `json:"nodeLabels,omitempty"`
+}
+
+type NodeTemplate struct {
+	// ID of the hardware platform configuration for the node.
+	// +kubebuilder:validation:Required
+	PlatformId string `json:"platformId"`
+	// Computing resources of the node such as the amount of memory and number of cores.
+	// +kubebuilder:validation:Required
+	ResourcesSpec *ResourcesSpec `json:"resourcesSpec"`
+	// Specification for the boot disk that will be attached to the node.
+	// +kubebuilder:validation:Required
+	BootDiskSpec *DiskSpec `json:"bootDiskSpec"`
+	// The metadata as `key:value` pairs assigned to this instance template. This includes custom metadata and predefined keys.
+	//
+	// For example, you may use the metadata in order to provide your public SSH key to the node.
+	// For more information, see [Metadata](/docs/compute/concepts/vm-metadata).
+	// +optional
+	Metadata map[string]string `json:"metadata,omitempty"`
+	// Scheduling policy configuration.
+	// +optional
+	SchedulingPolicy *SchedulingPolicy `json:"schedulingPolicy,omitempty"`
+	// New api, to specify network interfaces for the node group compute instances.
+	// Can not be used together with 'v4_address_spec'
+	// +optional
+	NetworkInterfaceSpecs NetworkInterfaceSpecs `json:"networkInterfaceSpecs,omitempty"`
+	// +optional
+	PlacementPolicy *PlacementPolicy `json:"placementPolicy,omitempty"`
+	// this parameter allows to specify type of network acceleration used on nodes (instances)
+	// +optional
+	NetworkSettings *NodeTemplate_NetworkSettings `json:"networkSettings,omitempty"`
+}
+
+type ResourcesSpec struct {
+	// Amount of memory available to the node, specified in bytes.
+	// +optional
+	Memory int64 `json:"memory,omitempty"`
+	// Number of cores available to the node.
+	// +optional
+	Cores int64 `json:"cores,omitempty"`
+	// Baseline level of CPU performance with the possibility to burst performance above that baseline level.
+	// This field sets baseline performance for each core.
+	// +optional
+	CoreFraction int64 `json:"coreFraction,omitempty"`
+	// Number of GPUs available to the node.
+	// +optional
+	Gpus int64 `json:"gpus,omitempty"`
+}
+
+type DiskSpec struct {
+	// ID of the disk type.
+	// +kubebuilder:validation:Required
+	DiskTypeId string `json:"diskTypeId"`
+	// Size of the disk, specified in bytes.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=32212254720
+	DiskSize int64 `json:"diskSize"`
+}
+
+type NodeAddressSpec struct {
+	// One-to-one NAT configuration. Setting up one-to-one NAT ensures that public IP addresses are assigned to nodes, and therefore internet is accessible for all nodes of the node group. If the field is not set, NAT will not be set up.
+	// +kubebuilder:validation:Required
+	OneToOneNatSpec *OneToOneNatSpec `json:"oneToOneNatSpec"`
+}
+
+type OneToOneNatSpec struct {
+	// IP version for the public IP address.
+	// +kubebuilder:validation:Required
+	IpVersion string `json:"ipVersion"`
+}
+
+type SchedulingPolicy struct {
+	// True for preemptible compute instances. Default value is false. Preemptible compute instances are stopped at least once every 24 hours, and can be stopped at any time
+	// if their resources are needed by Compute.
+	// For more information, see [Preemptible Virtual Machines](/docs/compute/concepts/preemptible-vm).
+	// +kubebuilder:validation:Required
+	Preemptible bool `json:"preemptible"`
+}
+
+type NetworkInterfaceSpecs []*NetworkInterfaceSpec
+
+// TODO: need work with references
+type NetworkInterfaceSpec struct {
+	// IDs of the subnets.
+	// +optional
+	SubnetIds []string `json:"subnetIds,omitempty"`
+	// +optional
+	SubnetIdsRefs []*xpv1.Reference `json:"subnetIdsRefs,omitempty"`
+	// +optional
+	SubnetIdsSelectors []*xpv1.Selector `json:"subnetIdsSelectors,omitempty"`
+	// Primary IPv4 address that is assigned to the instance for this network interface.
+	// +optional
+	PrimaryV4AddressSpec *NodeAddressSpec `json:"primaryV4addressSpec,omitempty"`
+	// Primary IPv6 address that is assigned to the instance for this network interface.
+	// +optional
+	PrimaryV6AddressSpec *NodeAddressSpec `json:"primaryV6addressSpec,omitempty"`
+	// IDs of security groups.
+	// +optional
+	SecurityGroupIds []string `json:"securityGroupIds,omitempty"`
+}
+
+type PlacementPolicy struct {
+	// Identifier of placement group
+	// +kubebuilder:validation:Required
+	PlacementGroupId string `json:"placementGroupId"`
+}
+
+type NodeTemplate_NetworkSettings struct {
+	// +kubebuilder:validation:Required
+	Type string `json:"type"`
+}
+
+type ScalePolicy struct {
+	// Types that are assignable to ScaleType:
+	//	*ScalePolicy_FixedScale_
+	//	*ScalePolicy_AutoScale_
+	// +kubebuilder:validation:Required
+	ScaleType *IsScalePolicy_ScaleType `json:"scaleType"`
+}
+
+type IsScalePolicy_ScaleType struct {
+	// Fixed scale policy of the node group.
+	// +optional
+	FixedScale *ScalePolicy_FixedScale `json:"fixedScale,omitempty"`
+	// Auto scale policy of the node group.
+	// +optional
+	AutoScale *ScalePolicy_AutoScale `json:"autoScale,omitempty"`
+}
+
+type ScalePolicy_FixedScale struct {
+	// Number of nodes in the node group.
+	// +kubebuilder:validation:Required
+	Size int64 `json:"size"`
+}
+
+type ScalePolicy_AutoScale struct {
+	// Minimum number of nodes in the node group.
+	// +kubebuilder:validation:Required
+	MinSize int64 `json:"minSize"`
+	// Maximum number of nodes in the node group.
+	// +kubebuilder:validation:Required
+	MaxSize int64 `json:"maxSize"`
+	// Initial number of nodes in the node group.
+	// +kubebuilder:validation:Required
+	InitialSize int64 `json:"initialSize"`
+}
+
+type NodeGroupAllocationPolicy struct {
+	// List of locations where resources for the node group will be allocated.
+	// +kubebuilder:validation:Required
+	Locations NodeGroupLocations `json:"locations"`
+}
+
+type NodeGroupLocations []*NodeGroupLocation
+
+type NodeGroupLocation struct {
+	// ID of the availability zone where the nodes may reside.
+	// TODO: should be reference probably
+	// +kubebuilder:validation:Required
+	ZoneId string `json:"zoneId"`
+	// ID of the subnet. If a network chosen for the Kubernetes cluster has only one subnet in the specified zone, subnet ID may be omitted.
+	// +optional
+	SubnetId string `json:"subnetId,omitempty"`
+	// +optional
+	SubnetIdRef *xpv1.Reference `json:"subnetIdRef,omitempty"`
+	// +optional
+	SubnetIdSelector *xpv1.Selector `json:"subnetIdSelector,omitempty"`
+}
+
+type DeployPolicy struct {
+	// The maximum number of running instances that can be taken offline (i.e.,
+	// stopped or deleted) at the same time during the update process.
+	// If [max_expansion] is not specified or set to zero, [max_unavailable] must
+	// be set to a non-zero value.
+	// +kubebuilder:validation:Required
+	MaxUnavailable int64 `json:"maxUnavailable"`
+	// The maximum number of instances that can be temporarily allocated above
+	// the group's target size during the update process.
+	// If [max_unavailable] is not specified or set to zero, [max_expansion] must
+	// be set to a non-zero value.
+	// +kubebuilder:validation:Required
+	MaxExpansion int64 `json:"maxExpansion"`
+}
+
+type NodeGroupMaintenancePolicy struct {
+	// If set to true, automatic updates are installed in the specified period of time with no interaction from the user.
+	// If set to false, automatic upgrades are disabled.
+	// +optional
+	AutoUpgrade bool `json:"autoUpgrade,omitempty"`
+	// If set to true, automatic repairs are enabled. Default value is false.
+	// +optional
+	AutoRepair bool `json:"autoRepair,omitempty"`
+	// Maintenance window settings. Update will start at the specified time and last no more than the specified duration.
+	// The time is set in UTC.
+	// +optional
+	MaintenanceWindow *MaintenanceWindow `json:"maintenanceWindow,omitempty"`
+}
+
+type Taint struct {
+	// The taint key to be applied to a node.
+	// +kubebuilder:validation:Required
+	Key string `json:"key"`
+	// The taint value corresponding to the taint key.
+	// +kubebuilder:validation:Required
+	Value string `json:"value"`
+	// The effect of the taint on pods that do not tolerate the taint.
+	// +kubebuilder:validation:Required
+	Effect string `json:"effect"`
+}
+
+type Taints []*Taint
+
+type VersionInfo struct {
+	// Current Kubernetes version, format: major.minor (e.g. 1.15).
+	CurrentVersion string `json:"currentVersion,omitempty"`
+	// Newer revisions may include Kubernetes patches (e.g 1.15.1 -> 1.15.2) as well
+	// as some internal component updates - new features or bug fixes in Yandex specific
+	// components either on the master or nodes.
+	NewRevisionAvailable bool `json:"newRevisionAvailable,omitempty"`
+	// Description of the changes to be applied when updating to the latest
+	// revision. Empty if new_revision_available is false.
+	NewRevisionSummary string `json:"newRevisionSummary,omitempty"`
+	// The current version is on the deprecation schedule, component (master or node group)
+	// should be upgraded.
+	VersionDeprecated bool `json:"versionDeprecated,omitempty"`
+}
+
+// An NodeGroupStatus represents the observed state of a NodeGroup.
+type NodeGroupStatus struct {
+	xpv1.ResourceStatus `json:",inline"`
+	AtProvider          NodeGroupObservation `json:"atProvider,omitempty"`
+}
+
+type NodeGroupObservation struct {
+	ID                   string                      `json:"id,omitempty"`
+	ClusterID            string                      `json:"clusterId,omitempty"`
+	Name                 string                      `json:"name,omitempty"`
+	Status               string                      `json:"status,omitempty"`
+	CreatedAt            string                      `json:"createdAt,omitempty"`
+	Description          string                      `json:"description,omitempty"`
+	Labels               map[string]string           `json:"labels,omitempty"`
+	NodeTemplate         *NodeTemplate               `json:"nodeTemplate,omitempty"`
+	ScalePolicy          *ScalePolicy                `json:"scalePolicy,omitempty"`
+	AllocationPolicy     *NodeGroupAllocationPolicy  `json:"allocationPolicy,omitempty"`
+	DeployPolicy         *DeployPolicy               `json:"deployPolicy,omitempty"`
+	VersionInfo          *VersionInfo                `json:"versionInfo,omitempty"`
+	MaintenancePolicy    *NodeGroupMaintenancePolicy `json:"maintenancePolicy,omitempty"`
+	AllowedUnsafeSysctls []string                    `json:"allowedUnsafeSysctls,omitempty"`
+	NodeTaints           Taints                      `json:"nodeTaints,omitempty"`
+	NodeLabels           map[string]string           `json:"nodeLabels,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="NAME",type="string",JSONPath=".status.atProvider.name"
+// +kubebuilder:printcolumn:name="STATUS",type="string",JSONPath=".status.atProvider.status"
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:resource:scope=Cluster,categories={crossplane,managed,yc}
+type NodeGroup struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   NodeGroupSpec   `json:"spec"`
+	Status NodeGroupStatus `json:"status,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+
+// ClusterList contains a list of Instance
+type NodeGroupList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []NodeGroup `json:"items"`
 }

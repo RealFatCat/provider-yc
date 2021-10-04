@@ -33,6 +33,16 @@ func NetworkID() reference.ExtractValueFn {
 	}
 }
 
+func ClusterID() reference.ExtractValueFn {
+	return func(mg resource.Managed) string {
+		s, ok := mg.(*Cluster)
+		if !ok {
+			return ""
+		}
+		return s.Status.AtProvider.ID
+	}
+}
+
 // ResolveReferences of this Subnet
 func (mg *Cluster) ResolveReferences(ctx context.Context, c client.Reader) error {
 	r := reference.NewAPIResolver(c, mg)
@@ -88,5 +98,59 @@ func (mg *Cluster) ResolveReferences(ctx context.Context, c client.Reader) error
 	mg.Spec.NetworkID = rsp.ResolvedValue
 	mg.Spec.NetworkIDRef = rsp.ResolvedReference
 
+	return nil
+}
+
+// ResolveReferences for NodeGroup
+func (mg *NodeGroup) ResolveReferences(ctx context.Context, c client.Reader) error {
+	r := reference.NewAPIResolver(c, mg)
+	rsp, err := r.Resolve(ctx, reference.ResolutionRequest{
+		CurrentValue: mg.Spec.ClusterId,
+		Reference:    mg.Spec.ClusterIdRef,
+		Selector:     mg.Spec.ClusterIdSelector,
+		To:           reference.To{Managed: &Cluster{}, List: &ClusterList{}},
+		Extract:      ClusterID(),
+	})
+	if err != nil {
+		return errors.Wrap(err, "Spec.ClusterId")
+	}
+	mg.Spec.ClusterId = rsp.ResolvedValue
+	mg.Spec.ClusterIdRef = rsp.ResolvedReference
+
+	if mg.Spec.AllocationPolicy != nil {
+		for _, loc := range mg.Spec.AllocationPolicy.Locations {
+			rsp, err := r.Resolve(ctx, reference.ResolutionRequest{
+				CurrentValue: loc.SubnetId,
+				Reference:    loc.SubnetIdRef,
+				Selector:     loc.SubnetIdSelector,
+				To:           reference.To{Managed: &network.Subnet{}, List: &network.SubnetList{}},
+				Extract:      SubnetID(),
+			})
+			if err != nil {
+				return errors.Wrap(err, "Spec.AllocationPolicy.Locations")
+			}
+			loc.SubnetId = rsp.ResolvedValue
+			loc.SubnetIdRef = rsp.ResolvedReference
+		}
+	}
+	// This is an unreliable design :(
+	if mg.Spec.NodeTemplate != nil {
+		for _, n := range mg.Spec.NodeTemplate.NetworkInterfaceSpecs {
+			for i, sn := range n.SubnetIdsRefs {
+				rsp, err := r.Resolve(ctx, reference.ResolutionRequest{
+					CurrentValue: n.SubnetIds[i],
+					Reference:    sn,
+					Selector:     n.SubnetIdsSelectors[i],
+					To:           reference.To{Managed: &network.Subnet{}, List: &network.SubnetList{}},
+					Extract:      SubnetID(),
+				})
+				if err != nil {
+					return errors.Wrap(err, "Spec.NodeTemplate.NetworkInterfaceSpecs")
+				}
+				n.SubnetIds[i] = rsp.ResolvedValue
+				n.SubnetIdsRefs[i] = rsp.ResolvedReference
+			}
+		}
+	}
 	return nil
 }

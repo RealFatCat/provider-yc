@@ -1,0 +1,960 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.3.0
+  creationTimestamp: null
+  name: nodegroups.kubernetes.yc.yandex-team.ru
+spec:
+  group: kubernetes.yc.yandex-team.ru
+  names:
+    categories:
+    - crossplane
+    - managed
+    - yc
+    kind: NodeGroup
+    listKind: NodeGroupList
+    plural: nodegroups
+    singular: nodegroup
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.atProvider.name
+      name: NAME
+      type: string
+    - jsonPath: .status.atProvider.status
+      name: STATUS
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: NodeGroup
+            properties:
+              allocationPolicy:
+                description: Allocation policy of the node group by the zones and regions.
+                properties:
+                  locations:
+                    description: List of locations where resources for the node group will be allocated.
+                    items:
+                      properties:
+                        subnetId:
+                          description: ID of the subnet. If a network chosen for the Kubernetes cluster has only one subnet in the specified zone, subnet ID may be omitted.
+                          type: string
+                        subnetIdRef:
+                          description: A Reference to a named object.
+                          properties:
+                            name:
+                              description: Name of the referenced object.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        subnetIdSelector:
+                          description: A Selector selects an object.
+                          properties:
+                            matchControllerRef:
+                              description: MatchControllerRef ensures an object with the same controller reference as the selecting object is selected.
+                              type: boolean
+                            matchLabels:
+                              additionalProperties:
+                                type: string
+                              description: MatchLabels ensures an object with matching labels is selected.
+                              type: object
+                          type: object
+                        zoneId:
+                          description: 'ID of the availability zone where the nodes may reside. TODO: should be reference probably'
+                          type: string
+                      required:
+                      - zoneId
+                      type: object
+                    type: array
+                required:
+                - locations
+                type: object
+              allowedUnsafeSysctls:
+                description: Support for unsafe sysctl parameters. For more details see [documentation](https://kubernetes.io/docs/tasks/administer-cluster/sysctl-cluster/).
+                items:
+                  type: string
+                type: array
+              clusterId:
+                description: ID of the Kubernetes cluster to create a node group in. To get the Kubernetes cluster ID, use a [ClusterService.List] request.
+                type: string
+              clusterIdRef:
+                description: A Reference to a named object.
+                properties:
+                  name:
+                    description: Name of the referenced object.
+                    type: string
+                required:
+                - name
+                type: object
+              clusterIdSelector:
+                description: A Selector selects an object.
+                properties:
+                  matchControllerRef:
+                    description: MatchControllerRef ensures an object with the same controller reference as the selecting object is selected.
+                    type: boolean
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: MatchLabels ensures an object with matching labels is selected.
+                    type: object
+                type: object
+              deletionPolicy:
+                description: DeletionPolicy specifies what will happen to the underlying external when this managed resource is deleted - either "Delete" or "Orphan" the external resource. The "Delete" policy is the default when no policy is specified.
+                enum:
+                - Orphan
+                - Delete
+                type: string
+              deployPolicy:
+                description: Deploy policy according to which the updates are rolled out. If not specified, the default is used.
+                properties:
+                  maxExpansion:
+                    description: The maximum number of instances that can be temporarily allocated above the group's target size during the update process. If [max_unavailable] is not specified or set to zero, [max_expansion] must be set to a non-zero value.
+                    format: int64
+                    type: integer
+                  maxUnavailable:
+                    description: The maximum number of running instances that can be taken offline (i.e., stopped or deleted) at the same time during the update process. If [max_expansion] is not specified or set to zero, [max_unavailable] must be set to a non-zero value.
+                    format: int64
+                    type: integer
+                required:
+                - maxExpansion
+                - maxUnavailable
+                type: object
+              description:
+                description: Description of the node group.
+                type: string
+              folderId:
+                type: string
+              labels:
+                additionalProperties:
+                  type: string
+                description: Resource labels as `key:value` pairs.
+                type: object
+              maintenancePolicy:
+                description: Maintenance policy of the node group.
+                properties:
+                  autoRepair:
+                    description: If set to true, automatic repairs are enabled. Default value is false.
+                    type: boolean
+                  autoUpgrade:
+                    description: If set to true, automatic updates are installed in the specified period of time with no interaction from the user. If set to false, automatic upgrades are disabled.
+                    type: boolean
+                  maintenanceWindow:
+                    description: Maintenance window settings. Update will start at the specified time and last no more than the specified duration. The time is set in UTC.
+                    properties:
+                      policy:
+                        description: "Maintenance policy. \n Types that are assignable to Policy: \t*MaintenanceWindow_Anytime \t*MaintenanceWindow_DailyMaintenanceWindow \t*MaintenanceWindow_WeeklyMaintenanceWindow"
+                        properties:
+                          anytime:
+                            description: Updating the master at any time.
+                            type: object
+                          dailyMaintenanceWindow:
+                            description: Updating the master on any day during the specified time window.
+                            properties:
+                              duration:
+                                description: Window duration.
+                                properties:
+                                  nanos:
+                                    description: Signed fractions of a second at nanosecond resolution of the span of time. Durations less than one second are represented with a 0 `seconds` field and a positive or negative `nanos` field. For durations of one second or more, a non-zero value for the `nanos` field must be of the same sign as the `seconds` field. Must be from -999,999,999 to +999,999,999 inclusive.
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    description: 'Signed seconds of the span of time. Must be from -315,576,000,000 to +315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years'
+                                    format: int64
+                                    maximum: 86400
+                                    minimum: 3600
+                                    type: integer
+                                type: object
+                              startTime:
+                                description: Window start time, in the UTC timezone.
+                                properties:
+                                  hours:
+                                    description: Hours of day in 24 hour format. Should be from 0 to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time.
+                                    format: int32
+                                    type: integer
+                                  minutes:
+                                    description: Minutes of hour of day. Must be from 0 to 59.
+                                    format: int32
+                                    type: integer
+                                  nanos:
+                                    description: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999.
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    description: Seconds of minutes of the time. Must normally be from 0 to 59. An API may allow the value 60 if it allows leap-seconds.
+                                    format: int32
+                                    type: integer
+                                type: object
+                            type: object
+                          weeklyMaintenanceWindow:
+                            description: Updating the master on selected days during the specified time window.
+                            properties:
+                              daysOfWeek:
+                                description: Days of the week and the maintenance window for these days when automatic updates are allowed.
+                                items:
+                                  properties:
+                                    days:
+                                      description: Days of the week when automatic updates are allowed.
+                                      items:
+                                        type: string
+                                      type: array
+                                    duration:
+                                      description: Window duration.
+                                      properties:
+                                        nanos:
+                                          description: Signed fractions of a second at nanosecond resolution of the span of time. Durations less than one second are represented with a 0 `seconds` field and a positive or negative `nanos` field. For durations of one second or more, a non-zero value for the `nanos` field must be of the same sign as the `seconds` field. Must be from -999,999,999 to +999,999,999 inclusive.
+                                          format: int32
+                                          type: integer
+                                        seconds:
+                                          description: 'Signed seconds of the span of time. Must be from -315,576,000,000 to +315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years'
+                                          format: int64
+                                          maximum: 86400
+                                          minimum: 3600
+                                          type: integer
+                                      type: object
+                                    startTime:
+                                      description: Window start time, in the UTC timezone.
+                                      properties:
+                                        hours:
+                                          description: Hours of day in 24 hour format. Should be from 0 to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time.
+                                          format: int32
+                                          type: integer
+                                        minutes:
+                                          description: Minutes of hour of day. Must be from 0 to 59.
+                                          format: int32
+                                          type: integer
+                                        nanos:
+                                          description: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999.
+                                          format: int32
+                                          type: integer
+                                        seconds:
+                                          description: Seconds of minutes of the time. Must normally be from 0 to 59. An API may allow the value 60 if it allows leap-seconds.
+                                          format: int32
+                                          type: integer
+                                      type: object
+                                  type: object
+                                type: array
+                            type: object
+                        type: object
+                    type: object
+                type: object
+              nodeLabels:
+                additionalProperties:
+                  type: string
+                description: Labels that are assigned to the nodes of the node group at creation time.
+                type: object
+              nodeTaints:
+                description: Taints that are applied to the nodes of the node group at creation time.
+                items:
+                  properties:
+                    effect:
+                      description: The effect of the taint on pods that do not tolerate the taint.
+                      type: string
+                    key:
+                      description: The taint key to be applied to a node.
+                      type: string
+                    value:
+                      description: The taint value corresponding to the taint key.
+                      type: string
+                  required:
+                  - effect
+                  - key
+                  - value
+                  type: object
+                type: array
+              nodeTemplate:
+                description: Node template for creating the node group.
+                properties:
+                  bootDiskSpec:
+                    description: Specification for the boot disk that will be attached to the node.
+                    properties:
+                      diskSize:
+                        description: Size of the disk, specified in bytes.
+                        format: int64
+                        minimum: 32212254720
+                        type: integer
+                      diskTypeId:
+                        description: ID of the disk type.
+                        type: string
+                    required:
+                    - diskSize
+                    - diskTypeId
+                    type: object
+                  metadata:
+                    additionalProperties:
+                      type: string
+                    description: "The metadata as `key:value` pairs assigned to this instance template. This includes custom metadata and predefined keys. \n For example, you may use the metadata in order to provide your public SSH key to the node. For more information, see [Metadata](/docs/compute/concepts/vm-metadata)."
+                    type: object
+                  networkInterfaceSpecs:
+                    description: New api, to specify network interfaces for the node group compute instances. Can not be used together with 'v4_address_spec'
+                    items:
+                      description: 'TODO: need work with references'
+                      properties:
+                        primaryV4addressSpec:
+                          description: Primary IPv4 address that is assigned to the instance for this network interface.
+                          properties:
+                            oneToOneNatSpec:
+                              description: One-to-one NAT configuration. Setting up one-to-one NAT ensures that public IP addresses are assigned to nodes, and therefore internet is accessible for all nodes of the node group. If the field is not set, NAT will not be set up.
+                              properties:
+                                ipVersion:
+                                  description: IP version for the public IP address.
+                                  type: string
+                              required:
+                              - ipVersion
+                              type: object
+                          required:
+                          - oneToOneNatSpec
+                          type: object
+                        primaryV6addressSpec:
+                          description: Primary IPv6 address that is assigned to the instance for this network interface.
+                          properties:
+                            oneToOneNatSpec:
+                              description: One-to-one NAT configuration. Setting up one-to-one NAT ensures that public IP addresses are assigned to nodes, and therefore internet is accessible for all nodes of the node group. If the field is not set, NAT will not be set up.
+                              properties:
+                                ipVersion:
+                                  description: IP version for the public IP address.
+                                  type: string
+                              required:
+                              - ipVersion
+                              type: object
+                          required:
+                          - oneToOneNatSpec
+                          type: object
+                        securityGroupIds:
+                          description: IDs of security groups.
+                          items:
+                            type: string
+                          type: array
+                        subnetIds:
+                          description: IDs of the subnets.
+                          items:
+                            type: string
+                          type: array
+                        subnetIdsRefs:
+                          items:
+                            description: A Reference to a named object.
+                            properties:
+                              name:
+                                description: Name of the referenced object.
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          type: array
+                        subnetIdsSelectors:
+                          items:
+                            description: A Selector selects an object.
+                            properties:
+                              matchControllerRef:
+                                description: MatchControllerRef ensures an object with the same controller reference as the selecting object is selected.
+                                type: boolean
+                              matchLabels:
+                                additionalProperties:
+                                  type: string
+                                description: MatchLabels ensures an object with matching labels is selected.
+                                type: object
+                            type: object
+                          type: array
+                      type: object
+                    type: array
+                  networkSettings:
+                    description: this parameter allows to specify type of network acceleration used on nodes (instances)
+                    properties:
+                      type:
+                        type: string
+                    required:
+                    - type
+                    type: object
+                  placementPolicy:
+                    properties:
+                      placementGroupId:
+                        description: Identifier of placement group
+                        type: string
+                    required:
+                    - placementGroupId
+                    type: object
+                  platformId:
+                    description: ID of the hardware platform configuration for the node.
+                    type: string
+                  resourcesSpec:
+                    description: Computing resources of the node such as the amount of memory and number of cores.
+                    properties:
+                      coreFraction:
+                        description: Baseline level of CPU performance with the possibility to burst performance above that baseline level. This field sets baseline performance for each core.
+                        format: int64
+                        type: integer
+                      cores:
+                        description: Number of cores available to the node.
+                        format: int64
+                        type: integer
+                      gpus:
+                        description: Number of GPUs available to the node.
+                        format: int64
+                        type: integer
+                      memory:
+                        description: Amount of memory available to the node, specified in bytes.
+                        format: int64
+                        type: integer
+                    type: object
+                  schedulingPolicy:
+                    description: Scheduling policy configuration.
+                    properties:
+                      preemptible:
+                        description: True for preemptible compute instances. Default value is false. Preemptible compute instances are stopped at least once every 24 hours, and can be stopped at any time if their resources are needed by Compute. For more information, see [Preemptible Virtual Machines](/docs/compute/concepts/preemptible-vm).
+                        type: boolean
+                    required:
+                    - preemptible
+                    type: object
+                required:
+                - bootDiskSpec
+                - platformId
+                - resourcesSpec
+                type: object
+              providerConfigRef:
+                description: ProviderConfigReference specifies how the provider that will be used to create, observe, update, and delete this managed resource should be configured.
+                properties:
+                  name:
+                    description: Name of the referenced object.
+                    type: string
+                required:
+                - name
+                type: object
+              providerRef:
+                description: 'ProviderReference specifies the provider that will be used to create, observe, update, and delete this managed resource. Deprecated: Please use ProviderConfigReference, i.e. `providerConfigRef`'
+                properties:
+                  name:
+                    description: Name of the referenced object.
+                    type: string
+                required:
+                - name
+                type: object
+              scalePolicy:
+                description: Scale policy of the node group.
+                properties:
+                  scaleType:
+                    description: "Types that are assignable to ScaleType: \t*ScalePolicy_FixedScale_ \t*ScalePolicy_AutoScale_"
+                    properties:
+                      autoScale:
+                        description: Auto scale policy of the node group.
+                        properties:
+                          initialSize:
+                            description: Initial number of nodes in the node group.
+                            format: int64
+                            type: integer
+                          maxSize:
+                            description: Maximum number of nodes in the node group.
+                            format: int64
+                            type: integer
+                          minSize:
+                            description: Minimum number of nodes in the node group.
+                            format: int64
+                            type: integer
+                        required:
+                        - initialSize
+                        - maxSize
+                        - minSize
+                        type: object
+                      fixedScale:
+                        description: Fixed scale policy of the node group.
+                        properties:
+                          size:
+                            description: Number of nodes in the node group.
+                            format: int64
+                            type: integer
+                        required:
+                        - size
+                        type: object
+                    type: object
+                required:
+                - scaleType
+                type: object
+              version:
+                description: Version of Kubernetes components that runs on the nodes.
+                type: string
+              writeConnectionSecretToRef:
+                description: WriteConnectionSecretToReference specifies the namespace and name of a Secret to which any connection details for this managed resource should be written. Connection details frequently include the endpoint, username, and password required to connect to the managed resource.
+                properties:
+                  name:
+                    description: Name of the secret.
+                    type: string
+                  namespace:
+                    description: Namespace of the secret.
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
+            required:
+            - allocationPolicy
+            - folderId
+            - maintenancePolicy
+            - nodeTemplate
+            - scalePolicy
+            - version
+            type: object
+          status:
+            description: An NodeGroupStatus represents the observed state of a NodeGroup.
+            properties:
+              atProvider:
+                properties:
+                  allocationPolicy:
+                    properties:
+                      locations:
+                        description: List of locations where resources for the node group will be allocated.
+                        items:
+                          properties:
+                            subnetId:
+                              description: ID of the subnet. If a network chosen for the Kubernetes cluster has only one subnet in the specified zone, subnet ID may be omitted.
+                              type: string
+                            subnetIdRef:
+                              description: A Reference to a named object.
+                              properties:
+                                name:
+                                  description: Name of the referenced object.
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            subnetIdSelector:
+                              description: A Selector selects an object.
+                              properties:
+                                matchControllerRef:
+                                  description: MatchControllerRef ensures an object with the same controller reference as the selecting object is selected.
+                                  type: boolean
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  description: MatchLabels ensures an object with matching labels is selected.
+                                  type: object
+                              type: object
+                            zoneId:
+                              description: 'ID of the availability zone where the nodes may reside. TODO: should be reference probably'
+                              type: string
+                          required:
+                          - zoneId
+                          type: object
+                        type: array
+                    required:
+                    - locations
+                    type: object
+                  allowedUnsafeSysctls:
+                    items:
+                      type: string
+                    type: array
+                  clusterId:
+                    type: string
+                  createdAt:
+                    type: string
+                  deployPolicy:
+                    properties:
+                      maxExpansion:
+                        description: The maximum number of instances that can be temporarily allocated above the group's target size during the update process. If [max_unavailable] is not specified or set to zero, [max_expansion] must be set to a non-zero value.
+                        format: int64
+                        type: integer
+                      maxUnavailable:
+                        description: The maximum number of running instances that can be taken offline (i.e., stopped or deleted) at the same time during the update process. If [max_expansion] is not specified or set to zero, [max_unavailable] must be set to a non-zero value.
+                        format: int64
+                        type: integer
+                    required:
+                    - maxExpansion
+                    - maxUnavailable
+                    type: object
+                  description:
+                    type: string
+                  id:
+                    type: string
+                  labels:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  maintenancePolicy:
+                    properties:
+                      autoRepair:
+                        description: If set to true, automatic repairs are enabled. Default value is false.
+                        type: boolean
+                      autoUpgrade:
+                        description: If set to true, automatic updates are installed in the specified period of time with no interaction from the user. If set to false, automatic upgrades are disabled.
+                        type: boolean
+                      maintenanceWindow:
+                        description: Maintenance window settings. Update will start at the specified time and last no more than the specified duration. The time is set in UTC.
+                        properties:
+                          policy:
+                            description: "Maintenance policy. \n Types that are assignable to Policy: \t*MaintenanceWindow_Anytime \t*MaintenanceWindow_DailyMaintenanceWindow \t*MaintenanceWindow_WeeklyMaintenanceWindow"
+                            properties:
+                              anytime:
+                                description: Updating the master at any time.
+                                type: object
+                              dailyMaintenanceWindow:
+                                description: Updating the master on any day during the specified time window.
+                                properties:
+                                  duration:
+                                    description: Window duration.
+                                    properties:
+                                      nanos:
+                                        description: Signed fractions of a second at nanosecond resolution of the span of time. Durations less than one second are represented with a 0 `seconds` field and a positive or negative `nanos` field. For durations of one second or more, a non-zero value for the `nanos` field must be of the same sign as the `seconds` field. Must be from -999,999,999 to +999,999,999 inclusive.
+                                        format: int32
+                                        type: integer
+                                      seconds:
+                                        description: 'Signed seconds of the span of time. Must be from -315,576,000,000 to +315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years'
+                                        format: int64
+                                        maximum: 86400
+                                        minimum: 3600
+                                        type: integer
+                                    type: object
+                                  startTime:
+                                    description: Window start time, in the UTC timezone.
+                                    properties:
+                                      hours:
+                                        description: Hours of day in 24 hour format. Should be from 0 to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time.
+                                        format: int32
+                                        type: integer
+                                      minutes:
+                                        description: Minutes of hour of day. Must be from 0 to 59.
+                                        format: int32
+                                        type: integer
+                                      nanos:
+                                        description: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999.
+                                        format: int32
+                                        type: integer
+                                      seconds:
+                                        description: Seconds of minutes of the time. Must normally be from 0 to 59. An API may allow the value 60 if it allows leap-seconds.
+                                        format: int32
+                                        type: integer
+                                    type: object
+                                type: object
+                              weeklyMaintenanceWindow:
+                                description: Updating the master on selected days during the specified time window.
+                                properties:
+                                  daysOfWeek:
+                                    description: Days of the week and the maintenance window for these days when automatic updates are allowed.
+                                    items:
+                                      properties:
+                                        days:
+                                          description: Days of the week when automatic updates are allowed.
+                                          items:
+                                            type: string
+                                          type: array
+                                        duration:
+                                          description: Window duration.
+                                          properties:
+                                            nanos:
+                                              description: Signed fractions of a second at nanosecond resolution of the span of time. Durations less than one second are represented with a 0 `seconds` field and a positive or negative `nanos` field. For durations of one second or more, a non-zero value for the `nanos` field must be of the same sign as the `seconds` field. Must be from -999,999,999 to +999,999,999 inclusive.
+                                              format: int32
+                                              type: integer
+                                            seconds:
+                                              description: 'Signed seconds of the span of time. Must be from -315,576,000,000 to +315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years'
+                                              format: int64
+                                              maximum: 86400
+                                              minimum: 3600
+                                              type: integer
+                                          type: object
+                                        startTime:
+                                          description: Window start time, in the UTC timezone.
+                                          properties:
+                                            hours:
+                                              description: Hours of day in 24 hour format. Should be from 0 to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time.
+                                              format: int32
+                                              type: integer
+                                            minutes:
+                                              description: Minutes of hour of day. Must be from 0 to 59.
+                                              format: int32
+                                              type: integer
+                                            nanos:
+                                              description: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999.
+                                              format: int32
+                                              type: integer
+                                            seconds:
+                                              description: Seconds of minutes of the time. Must normally be from 0 to 59. An API may allow the value 60 if it allows leap-seconds.
+                                              format: int32
+                                              type: integer
+                                          type: object
+                                      type: object
+                                    type: array
+                                type: object
+                            type: object
+                        type: object
+                    type: object
+                  name:
+                    type: string
+                  nodeLabels:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  nodeTaints:
+                    items:
+                      properties:
+                        effect:
+                          description: The effect of the taint on pods that do not tolerate the taint.
+                          type: string
+                        key:
+                          description: The taint key to be applied to a node.
+                          type: string
+                        value:
+                          description: The taint value corresponding to the taint key.
+                          type: string
+                      required:
+                      - effect
+                      - key
+                      - value
+                      type: object
+                    type: array
+                  nodeTemplate:
+                    properties:
+                      bootDiskSpec:
+                        description: Specification for the boot disk that will be attached to the node.
+                        properties:
+                          diskSize:
+                            description: Size of the disk, specified in bytes.
+                            format: int64
+                            minimum: 32212254720
+                            type: integer
+                          diskTypeId:
+                            description: ID of the disk type.
+                            type: string
+                        required:
+                        - diskSize
+                        - diskTypeId
+                        type: object
+                      metadata:
+                        additionalProperties:
+                          type: string
+                        description: "The metadata as `key:value` pairs assigned to this instance template. This includes custom metadata and predefined keys. \n For example, you may use the metadata in order to provide your public SSH key to the node. For more information, see [Metadata](/docs/compute/concepts/vm-metadata)."
+                        type: object
+                      networkInterfaceSpecs:
+                        description: New api, to specify network interfaces for the node group compute instances. Can not be used together with 'v4_address_spec'
+                        items:
+                          description: 'TODO: need work with references'
+                          properties:
+                            primaryV4addressSpec:
+                              description: Primary IPv4 address that is assigned to the instance for this network interface.
+                              properties:
+                                oneToOneNatSpec:
+                                  description: One-to-one NAT configuration. Setting up one-to-one NAT ensures that public IP addresses are assigned to nodes, and therefore internet is accessible for all nodes of the node group. If the field is not set, NAT will not be set up.
+                                  properties:
+                                    ipVersion:
+                                      description: IP version for the public IP address.
+                                      type: string
+                                  required:
+                                  - ipVersion
+                                  type: object
+                              required:
+                              - oneToOneNatSpec
+                              type: object
+                            primaryV6addressSpec:
+                              description: Primary IPv6 address that is assigned to the instance for this network interface.
+                              properties:
+                                oneToOneNatSpec:
+                                  description: One-to-one NAT configuration. Setting up one-to-one NAT ensures that public IP addresses are assigned to nodes, and therefore internet is accessible for all nodes of the node group. If the field is not set, NAT will not be set up.
+                                  properties:
+                                    ipVersion:
+                                      description: IP version for the public IP address.
+                                      type: string
+                                  required:
+                                  - ipVersion
+                                  type: object
+                              required:
+                              - oneToOneNatSpec
+                              type: object
+                            securityGroupIds:
+                              description: IDs of security groups.
+                              items:
+                                type: string
+                              type: array
+                            subnetIds:
+                              description: IDs of the subnets.
+                              items:
+                                type: string
+                              type: array
+                            subnetIdsRefs:
+                              items:
+                                description: A Reference to a named object.
+                                properties:
+                                  name:
+                                    description: Name of the referenced object.
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              type: array
+                            subnetIdsSelectors:
+                              items:
+                                description: A Selector selects an object.
+                                properties:
+                                  matchControllerRef:
+                                    description: MatchControllerRef ensures an object with the same controller reference as the selecting object is selected.
+                                    type: boolean
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: MatchLabels ensures an object with matching labels is selected.
+                                    type: object
+                                type: object
+                              type: array
+                          type: object
+                        type: array
+                      networkSettings:
+                        description: this parameter allows to specify type of network acceleration used on nodes (instances)
+                        properties:
+                          type:
+                            type: string
+                        required:
+                        - type
+                        type: object
+                      placementPolicy:
+                        properties:
+                          placementGroupId:
+                            description: Identifier of placement group
+                            type: string
+                        required:
+                        - placementGroupId
+                        type: object
+                      platformId:
+                        description: ID of the hardware platform configuration for the node.
+                        type: string
+                      resourcesSpec:
+                        description: Computing resources of the node such as the amount of memory and number of cores.
+                        properties:
+                          coreFraction:
+                            description: Baseline level of CPU performance with the possibility to burst performance above that baseline level. This field sets baseline performance for each core.
+                            format: int64
+                            type: integer
+                          cores:
+                            description: Number of cores available to the node.
+                            format: int64
+                            type: integer
+                          gpus:
+                            description: Number of GPUs available to the node.
+                            format: int64
+                            type: integer
+                          memory:
+                            description: Amount of memory available to the node, specified in bytes.
+                            format: int64
+                            type: integer
+                        type: object
+                      schedulingPolicy:
+                        description: Scheduling policy configuration.
+                        properties:
+                          preemptible:
+                            description: True for preemptible compute instances. Default value is false. Preemptible compute instances are stopped at least once every 24 hours, and can be stopped at any time if their resources are needed by Compute. For more information, see [Preemptible Virtual Machines](/docs/compute/concepts/preemptible-vm).
+                            type: boolean
+                        required:
+                        - preemptible
+                        type: object
+                    required:
+                    - bootDiskSpec
+                    - platformId
+                    - resourcesSpec
+                    type: object
+                  scalePolicy:
+                    properties:
+                      scaleType:
+                        description: "Types that are assignable to ScaleType: \t*ScalePolicy_FixedScale_ \t*ScalePolicy_AutoScale_"
+                        properties:
+                          autoScale:
+                            description: Auto scale policy of the node group.
+                            properties:
+                              initialSize:
+                                description: Initial number of nodes in the node group.
+                                format: int64
+                                type: integer
+                              maxSize:
+                                description: Maximum number of nodes in the node group.
+                                format: int64
+                                type: integer
+                              minSize:
+                                description: Minimum number of nodes in the node group.
+                                format: int64
+                                type: integer
+                            required:
+                            - initialSize
+                            - maxSize
+                            - minSize
+                            type: object
+                          fixedScale:
+                            description: Fixed scale policy of the node group.
+                            properties:
+                              size:
+                                description: Number of nodes in the node group.
+                                format: int64
+                                type: integer
+                            required:
+                            - size
+                            type: object
+                        type: object
+                    required:
+                    - scaleType
+                    type: object
+                  status:
+                    type: string
+                  versionInfo:
+                    properties:
+                      currentVersion:
+                        description: 'Current Kubernetes version, format: major.minor (e.g. 1.15).'
+                        type: string
+                      newRevisionAvailable:
+                        description: Newer revisions may include Kubernetes patches (e.g 1.15.1 -> 1.15.2) as well as some internal component updates - new features or bug fixes in Yandex specific components either on the master or nodes.
+                        type: boolean
+                      newRevisionSummary:
+                        description: Description of the changes to be applied when updating to the latest revision. Empty if new_revision_available is false.
+                        type: string
+                      versionDeprecated:
+                        description: The current version is on the deprecation schedule, component (master or node group) should be upgraded.
+                        type: boolean
+                    type: object
+                type: object
+              conditions:
+                description: Conditions of the resource.
+                items:
+                  description: A Condition that may apply to a resource.
+                  properties:
+                    lastTransitionTime:
+                      description: LastTransitionTime is the last time this condition transitioned from one status to another.
+                      format: date-time
+                      type: string
+                    message:
+                      description: A Message containing details about this condition's last transition from one status to another, if any.
+                      type: string
+                    reason:
+                      description: A Reason for this condition's last transition from one status to another.
+                      type: string
+                    status:
+                      description: Status of this condition; is it currently True, False, or Unknown?
+                      type: string
+                    type:
+                      description: Type of this condition. At most one of each condition type may apply to a resource at any point in time.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

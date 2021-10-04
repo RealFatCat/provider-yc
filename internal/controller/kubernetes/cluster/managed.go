@@ -27,11 +27,11 @@ import (
 
 	"github.com/RealFatCat/provider-yc/apis/kubernetes/v1alpha1"
 
-	dayofweek "google.golang.org/genproto/googleapis/type/dayofweek"
-
 	"github.com/yandex-cloud/go-sdk/sdkresolvers"
 
 	"google.golang.org/genproto/protobuf/field_mask"
+
+	kubehlp "github.com/RealFatCat/provider-yc/pkg/clients/kubernetes"
 )
 
 const (
@@ -163,60 +163,8 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		SecurityGroupIds: cluster.Master.SecurityGroupIds,
 	}
 	mp := &v1alpha1.MasterMaintenancePolicy{
-		AutoUpgrade: cluster.Master.MaintenancePolicy.AutoUpgrade,
-		MaintenanceWindow: &v1alpha1.MaintenanceWindow{
-			Policy: &v1alpha1.MaintenanceWindow_Policy{},
-		},
-	}
-
-	switch cluster.Master.MaintenancePolicy.MaintenanceWindow.Policy.(type) {
-	case *k8s_pb.MaintenanceWindow_Anytime:
-		mp.MaintenanceWindow.Policy = &v1alpha1.MaintenanceWindow_Policy{Anytime: &v1alpha1.AnytimeMaintenanceWindow{}}
-
-	case *k8s_pb.MaintenanceWindow_DailyMaintenanceWindow:
-		mp.MaintenanceWindow.Policy = &v1alpha1.MaintenanceWindow_Policy{
-			DailyMaintenanceWindow: &v1alpha1.DailyMaintenanceWindow{
-				StartTime: &v1alpha1.TimeOfDay{
-					Hours:   cluster.Master.MaintenancePolicy.MaintenanceWindow.GetDailyMaintenanceWindow().StartTime.Hours,
-					Minutes: cluster.Master.MaintenancePolicy.MaintenanceWindow.GetDailyMaintenanceWindow().StartTime.Minutes,
-					Seconds: cluster.Master.MaintenancePolicy.MaintenanceWindow.GetDailyMaintenanceWindow().StartTime.Seconds,
-					Nanos:   cluster.Master.MaintenancePolicy.MaintenanceWindow.GetDailyMaintenanceWindow().StartTime.Nanos,
-				},
-				Duration: &v1alpha1.Duration{
-					Seconds: cluster.Master.MaintenancePolicy.MaintenanceWindow.GetDailyMaintenanceWindow().Duration.Seconds,
-					Nanos:   cluster.Master.MaintenancePolicy.MaintenanceWindow.GetDailyMaintenanceWindow().Duration.Nanos,
-				},
-			},
-		}
-	case *k8s_pb.MaintenanceWindow_WeeklyMaintenanceWindow:
-		daysOfWeek := []*v1alpha1.DaysOfWeekMaintenanceWindow{}
-		pbdow := cluster.Master.MaintenancePolicy.MaintenanceWindow.GetWeeklyMaintenanceWindow().DaysOfWeek
-		for _, dayOfWeek := range pbdow {
-			dow := &v1alpha1.DaysOfWeekMaintenanceWindow{
-				StartTime: &v1alpha1.TimeOfDay{
-					Hours:   dayOfWeek.StartTime.Hours,
-					Minutes: dayOfWeek.StartTime.Minutes,
-					Seconds: dayOfWeek.StartTime.Seconds,
-					Nanos:   dayOfWeek.StartTime.Nanos,
-				},
-				Duration: &v1alpha1.Duration{
-					Seconds: dayOfWeek.Duration.Seconds,
-					Nanos:   dayOfWeek.Duration.Nanos,
-				},
-			}
-			days := []string{}
-			for _, day := range dayOfWeek.Days {
-				days = append(days, dayofweek.DayOfWeek_name[int32(day)])
-			}
-			dow.Days = days
-			daysOfWeek = append(daysOfWeek, dow)
-		}
-
-		mp.MaintenanceWindow.Policy = &v1alpha1.MaintenanceWindow_Policy{
-			WeeklyMaintenanceWindow: &v1alpha1.WeeklyMaintenanceWindow{
-				DaysOfWeek: daysOfWeek,
-			},
-		}
+		AutoUpgrade:       cluster.Master.MaintenancePolicy.AutoUpgrade,
+		MaintenanceWindow: kubehlp.NewMaintenanceWindowSDK(cluster.Master.MaintenancePolicy.MaintenanceWindow),
 	}
 	ms.MaintenancePolicy = mp
 
@@ -412,73 +360,77 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	needUpdate := false
 	paths := []string{}
-	if cr.Status.AtProvider.Name != cr.GetName() {
-		ureq.Name = cr.GetName()
-		needUpdate = true
-		paths = append(paths, "name")
-	}
-	if cr.Status.AtProvider.Description != cr.Spec.Description {
-		ureq.Description = cr.Spec.Description
-		needUpdate = true
-		paths = append(paths, "description")
-	}
-	if !reflect.DeepEqual(cr.Status.AtProvider.Labels, cr.Spec.Labels) {
-		ureq.Labels = cr.Spec.Labels
-		needUpdate = true
-		paths = append(paths, "labels")
-	}
-	if cr.Status.AtProvider.ServiceAccountId != svcAccID {
-		ureq.ServiceAccountId = svcAccID
-		needUpdate = true
-		paths = append(paths, "service_account_id")
-	}
-	if cr.Status.AtProvider.NodeServiceAccountId != nodeAccID {
-		ureq.NodeServiceAccountId = nodeAccID
-		needUpdate = true
-		paths = append(paths, "node_service_account_id")
-	}
-	if !reflect.DeepEqual(cr.Status.AtProvider.InternetGateway, cr.Spec.InternetGateway) {
-		if cr.Spec.InternetGateway != nil {
-			ureq.InternetGateway = &k8s_pb.UpdateClusterRequest_GatewayIpv4Address{
-				GatewayIpv4Address: cr.Spec.InternetGateway.GatewayIpv4Address,
-			}
+	if resp.Status != k8s_pb.Cluster_PROVISIONING {
+		if cr.Status.AtProvider.Name != cr.GetName() {
+			ureq.Name = cr.GetName()
 			needUpdate = true
-			paths = append(paths, "internet_gateway")
+			paths = append(paths, "name")
 		}
-	}
-	if !reflect.DeepEqual(cr.Status.AtProvider.NetworkPolicy, cr.Spec.NetworkPolicy) {
-		if cr.Spec.NetworkPolicy != nil {
-			var p k8s_pb.NetworkPolicy_Provider
-			if v, ok := k8s_pb.NetworkPolicy_Provider_value[cr.Spec.NetworkPolicy.Provider]; ok {
-				p = k8s_pb.NetworkPolicy_Provider(v)
-			} else {
-				p = k8s_pb.NetworkPolicy_PROVIDER_UNSPECIFIED
-			}
-			ureq.NetworkPolicy = &k8s_pb.NetworkPolicy{
-				Provider: p,
-			}
+		if cr.Status.AtProvider.Description != cr.Spec.Description {
+			ureq.Description = cr.Spec.Description
 			needUpdate = true
-			paths = append(paths, "network_policy")
+			paths = append(paths, "description")
 		}
-	}
-	if !reflect.DeepEqual(cr.Status.AtProvider.Master.MaintenancePolicy, cr.Spec.MasterSpec.MaintenancePolicy) ||
-		!reflect.DeepEqual(cr.Status.AtProvider.Master.SecurityGroupIds, cr.Spec.MasterSpec.SecurityGroupIds) ||
-		cr.Status.AtProvider.Master.Version != cr.Spec.MasterSpec.Version {
+		if !reflect.DeepEqual(cr.Status.AtProvider.Labels, cr.Spec.Labels) {
+			ureq.Labels = cr.Spec.Labels
+			needUpdate = true
+			paths = append(paths, "labels")
+		}
+		if cr.Status.AtProvider.ServiceAccountId != svcAccID {
+			ureq.ServiceAccountId = svcAccID
+			needUpdate = true
+			paths = append(paths, "service_account_id")
+		}
+		if cr.Status.AtProvider.NodeServiceAccountId != nodeAccID {
+			ureq.NodeServiceAccountId = nodeAccID
+			needUpdate = true
+			paths = append(paths, "node_service_account_id")
+		}
+		if !reflect.DeepEqual(cr.Status.AtProvider.InternetGateway, cr.Spec.InternetGateway) {
+			if cr.Spec.InternetGateway != nil {
+				ureq.InternetGateway = &k8s_pb.UpdateClusterRequest_GatewayIpv4Address{
+					GatewayIpv4Address: cr.Spec.InternetGateway.GatewayIpv4Address,
+				}
+				needUpdate = true
+				paths = append(paths, "internet_gateway")
+			}
+		}
+		if !reflect.DeepEqual(cr.Status.AtProvider.NetworkPolicy, cr.Spec.NetworkPolicy) {
+			if cr.Spec.NetworkPolicy != nil {
+				var p k8s_pb.NetworkPolicy_Provider
+				if v, ok := k8s_pb.NetworkPolicy_Provider_value[cr.Spec.NetworkPolicy.Provider]; ok {
+					p = k8s_pb.NetworkPolicy_Provider(v)
+				} else {
+					p = k8s_pb.NetworkPolicy_PROVIDER_UNSPECIFIED
+				}
+				ureq.NetworkPolicy = &k8s_pb.NetworkPolicy{
+					Provider: p,
+				}
+				needUpdate = true
+				paths = append(paths, "network_policy")
+			}
+		}
+		if !reflect.DeepEqual(cr.Status.AtProvider.Master.MaintenancePolicy, cr.Spec.MasterSpec.MaintenancePolicy) ||
+			!reflect.DeepEqual(cr.Status.AtProvider.Master.SecurityGroupIds, cr.Spec.MasterSpec.SecurityGroupIds) ||
+			cr.Status.AtProvider.Master.Version != cr.Spec.MasterSpec.Version {
 
-		ureq.MasterSpec = &k8s_pb.MasterUpdateSpec{
-			Version: &k8s_pb.UpdateVersionSpec{
-				// Support only _Version for now
-				Specifier: &k8s_pb.UpdateVersionSpec_Version{
-					Version: cr.Spec.MasterSpec.Version,
+			ureq.MasterSpec = &k8s_pb.MasterUpdateSpec{
+				Version: &k8s_pb.UpdateVersionSpec{
+					// Support only _Version for now
+					Specifier: &k8s_pb.UpdateVersionSpec_Version{
+						Version: cr.Spec.MasterSpec.Version,
+					},
 				},
-			},
-			SecurityGroupIds:  cr.Spec.MasterSpec.SecurityGroupIds,
-			MaintenancePolicy: FillMaintenancePolicyPb(ctx, cr.Spec.MasterSpec),
+				SecurityGroupIds: cr.Spec.MasterSpec.SecurityGroupIds,
+				MaintenancePolicy: &k8s_pb.MasterMaintenancePolicy{
+					AutoUpgrade:       cr.Spec.MasterSpec.MaintenancePolicy.AutoUpgrade,
+					MaintenanceWindow: kubehlp.NewMaintenanceWindow(cr.Spec.MasterSpec.MaintenancePolicy.MaintenanceWindow),
+				},
+			}
+			needUpdate = true
+			paths = append(paths, "master_spec")
 		}
-		needUpdate = true
-		paths = append(paths, "master_spec")
 	}
-	// TODO Do better
 	if needUpdate {
 		updateMask := &field_mask.FieldMask{Paths: paths}
 		ureq.UpdateMask = updateMask
