@@ -17,6 +17,8 @@ image-tag:
 image-push:
 	docker push $(ORG_NAME)/$(PROVIDER_NAME):$(VERSION)
 
+image-tag-n-push: image-tag image-push
+
 run: generate
 	kubectl apply -f package/crds/ -R
 	go run cmd/provider/main.go -d

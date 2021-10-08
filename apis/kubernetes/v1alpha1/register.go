@@ -43,8 +43,14 @@ var (
 	ClusterTypeGroupKind        = schema.GroupKind{Group: Group, Kind: ClusterTypeKind}.String()
 	ClusterTypeKindAPIVersion   = ClusterTypeKind + "." + SchemeGroupVersion.String()
 	ClusterTypeGroupVersionKind = SchemeGroupVersion.WithKind(ClusterTypeKind)
+
+	NodeGroupTypeKind             = reflect.TypeOf(NodeGroup{}).Name()
+	NodeGroupTypeGroupKind        = schema.GroupKind{Group: Group, Kind: NodeGroupTypeKind}.String()
+	NodeGroupTypeKindAPIVersion   = NodeGroupTypeKind + "." + SchemeGroupVersion.String()
+	NodeGroupTypeGroupVersionKind = SchemeGroupVersion.WithKind(NodeGroupTypeKind)
 )
 
 func init() {
 	SchemeBuilder.Register(&Cluster{}, &ClusterList{})
+	SchemeBuilder.Register(&NodeGroup{}, &NodeGroupList{})
 }

@@ -18,7 +18,7 @@ spec:
       serviceAccountName: crossplane
       containers:
         - name: provider-yc-controller
-          image: cr.yandex/crpq165pjbjiprv8pfri/crossplane/provider-yc:yandex-0.1.3-debug3
+          image: cr.yandex/crpq165pjbjiprv8pfri/crossplane/provider-yc:yandex-0.1.4-debug15
           args: ['-d']
           ports:
             - containerPort: 8080

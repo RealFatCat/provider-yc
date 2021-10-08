@@ -62,6 +62,8 @@ spec:
                   gatewayIpv4Address:
                     description: Gateway IPv4 address.
                     type: string
+                required:
+                - gatewayIpv4Address
                 type: object
               ipAllocationPolicy:
                 description: IP allocation policy of the Kubernetes cluster.
@@ -89,6 +91,8 @@ spec:
                   keyId:
                     description: KMS key ID for secrets encryption. To obtain a KMS key ID use a [yandex.cloud.kms.v1.SymmetricKeyService.List] request.
                     type: string
+                required:
+                - keyId
                 type: object
               labels:
                 additionalProperties:
@@ -201,8 +205,6 @@ spec:
                                     type: array
                                 type: object
                             type: object
-                        required:
-                        - policy
                         type: object
                     type: object
                   masterType:
@@ -302,6 +304,7 @@ spec:
                     type: string
                 required:
                 - masterType
+                - version
                 type: object
               networkId:
                 description: Name of the network.
@@ -334,7 +337,11 @@ spec:
                     properties:
                       routingMode:
                         type: string
+                    required:
+                    - routingMode
                     type: object
+                required:
+                - cilium
                 type: object
               networkPolicy:
                 properties:
@@ -386,6 +393,10 @@ spec:
                 type: string
             required:
             - folderId
+            - masterSpec
+            - nodeServiceAccountName
+            - releaseChannel
+            - serviceAccountName
             type: object
           status:
             description: An ClusterStatus represents the observed state of a Cluster.
@@ -408,6 +419,8 @@ spec:
                       gatewayIpv4Address:
                         description: Gateway IPv4 address.
                         type: string
+                    required:
+                    - gatewayIpv4Address
                     type: object
                   labels:
                     additionalProperties:
@@ -518,8 +531,6 @@ spec:
                                         type: array
                                     type: object
                                 type: object
-                            required:
-                            - policy
                             type: object
                         type: object
                       masterType:

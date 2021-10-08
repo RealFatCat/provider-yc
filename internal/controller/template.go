@@ -25,6 +25,7 @@ import (
 	"github.com/RealFatCat/provider-yc/internal/controller/compute"
 	"github.com/RealFatCat/provider-yc/internal/controller/config"
 	"github.com/RealFatCat/provider-yc/internal/controller/kubernetes/cluster"
+	"github.com/RealFatCat/provider-yc/internal/controller/kubernetes/nodegroup"
 	"github.com/RealFatCat/provider-yc/internal/controller/networking/network"
 	"github.com/RealFatCat/provider-yc/internal/controller/networking/subnet"
 )
@@ -38,6 +39,7 @@ func Setup(mgr ctrl.Manager, l logging.Logger, wl workqueue.RateLimiter) error {
 		subnet.Setup,
 		compute.Setup,
 		cluster.Setup,
+		nodegroup.Setup,
 	} {
 		if err := setup(mgr, l, wl); err != nil {
 			return err

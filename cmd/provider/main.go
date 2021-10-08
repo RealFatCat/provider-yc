@@ -53,9 +53,11 @@ func main() {
 	}
 
 	log.Debug("Starting", "sync-period", syncPeriod.String())
-	go func() {
-		http.ListenAndServe("localhost:6060", nil)
-	}()
+	if *debug {
+		go func() {
+			http.ListenAndServe("localhost:6060", nil)
+		}()
+	}
 
 	cfg, err := ctrl.GetConfig()
 	kingpin.FatalIfError(err, "Cannot get API server rest config")
